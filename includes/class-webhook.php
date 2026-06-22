@@ -1,0 +1,137 @@
+<?php
+
+/**
+ * Stripe webhook handler.
+ * Endpoint: POST /wp-json/initrix/v1/stripe-webhook
+ */
+class Initrix_Webhook {
+
+    public static function register_route() {
+        register_rest_route('initrix/v1', '/stripe-webhook', [
+            'methods'             => 'POST',
+            'callback'            => [__CLASS__, 'handle'],
+            'permission_callback' => '__return_true',
+        ]);
+    }
+
+    public static function handle($request) {
+        $payload    = $request->get_body();
+        $sig_header = $request->get_header('stripe-signature');
+        $secret     = self::get_webhook_secret();
+
+        if (empty($sig_header)) {
+            return new WP_REST_Response('Missing Stripe-Signature header', 400);
+        }
+
+        try {
+            $event = \Stripe\Webhook::constructEvent($payload, $sig_header, $secret);
+        } catch (\UnexpectedValueException $e) {
+            return new WP_REST_Response('Invalid payload', 400);
+        } catch (\Stripe\Exception\SignatureVerificationException $e) {
+            return new WP_REST_Response('Invalid signature', 403);
+        }
+
+        error_log("Initrix Stripe: Received event {$event->type}");
+
+        switch ($event->type) {
+            case 'checkout.session.completed':
+                self::handle_checkout_completed($event->data->object);
+                break;
+            case 'invoice.paid':
+                self::handle_invoice_paid($event->data->object);
+                break;
+            case 'customer.subscription.deleted':
+                self::handle_subscription_deleted($event->data->object);
+                break;
+            case 'invoice.payment_failed':
+                self::handle_payment_failed($event->data->object);
+                break;
+        }
+
+        return new WP_REST_Response('OK', 200);
+    }
+
+    private static function handle_checkout_completed($session) {
+        \Stripe\Stripe::setApiKey(self::get_secret_key());
+
+        try {
+            $session = \Stripe\Checkout\Session::retrieve([
+                'id'     => $session->id,
+                'expand' => ['customer', 'subscription'],
+            ]);
+        } catch (\Exception $e) {
+            error_log("Initrix Stripe: Failed to retrieve session {$session->id}: " . $e->getMessage());
+            return;
+        }
+
+        $metadata     = $session->metadata ?? [];
+        $email_prefix = $metadata['email_prefix'] ?? null;
+        $domain       = $metadata['domain'] ?? null;
+
+        if (!$email_prefix || !$domain) {
+            error_log("Initrix Stripe: Missing email_prefix/domain in session metadata for {$session->id}");
+            return;
+        }
+
+        $full_email    = $email_prefix . '@' . $domain;
+        $transient_key = 'initrix_pending_' . $session->id;
+        $pending       = get_transient($transient_key);
+
+        if (!$pending || empty($pending['password'])) {
+            error_log("Initrix Stripe: No pending signup for session {$session->id}");
+            return;
+        }
+
+        $expiry_date = date('Y-m-d', strtotime('+1 year'));
+        $result = Initrix_Provisioner::provision($full_email, $pending['password'], "active_until:{$expiry_date}");
+
+        if (is_wp_error($result)) {
+            error_log("Initrix Stripe: Provision failed for {$full_email}: " . $result->get_error_message());
+            return;
+        }
+
+        update_user_meta($result, 'initrix_stripe_customer_id', $session->customer);
+        update_user_meta($result, 'initrix_stripe_subscription_id', $session->subscription);
+        delete_transient($transient_key);
+
+        error_log("Initrix Stripe: ✅ Provisioned {$full_email} (user_id={$result})");
+    }
+
+    private static function handle_invoice_paid($invoice) {
+        $user = self::find_user_by_stripe_customer($invoice->customer);
+        if ($user) {
+            Initrix_Provisioner::extend_subscription($user->ID, 12);
+        }
+    }
+
+    private static function handle_subscription_deleted($subscription) {
+        $user = self::find_user_by_stripe_customer($subscription->customer);
+        if ($user) {
+            Initrix_Provisioner::lapse_access($user->ID);
+        }
+    }
+
+    private static function handle_payment_failed($invoice) {
+        $user = self::find_user_by_stripe_customer($invoice->customer);
+        if ($user) {
+            Initrix_Provisioner::lapse_access($user->ID);
+        }
+    }
+
+    private static function find_user_by_stripe_customer($customer_id) {
+        $users = get_users([
+            'meta_key'   => 'initrix_stripe_customer_id',
+            'meta_value' => $customer_id,
+            'number'     => 1,
+        ]);
+        return !empty($users) ? $users[0] : null;
+    }
+
+    private static function get_secret_key() {
+        return defined('INITRIX_STRIPE_SECRET_KEY') ? INITRIX_STRIPE_SECRET_KEY : get_option('initrix_stripe_secret_key', '');
+    }
+
+    private static function get_webhook_secret() {
+        return defined('INITRIX_STRIPE_WEBHOOK_SECRET') ? INITRIX_STRIPE_WEBHOOK_SECRET : get_option('initrix_stripe_webhook_secret', '');
+    }
+}
