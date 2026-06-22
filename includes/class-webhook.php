@@ -2,12 +2,12 @@
 
 /**
  * Stripe webhook handler.
- * Endpoint: POST /wp-json/initrix/v1/stripe-webhook
+ * Endpoint: POST /wp-json/wpsg/v1/stripe-webhook
  */
-class Initrix_Webhook {
+class WPSG_Webhook {
 
     public static function register_route() {
-        register_rest_route('initrix/v1', '/stripe-webhook', [
+        register_rest_route('wpsg/v1', '/stripe-webhook', [
             'methods'             => 'POST',
             'callback'            => [__CLASS__, 'handle'],
             'permission_callback' => '__return_true',
@@ -74,7 +74,7 @@ class Initrix_Webhook {
         }
 
         $full_email    = $email_prefix . '@' . $domain;
-        $transient_key = 'initrix_pending_' . $session->id;
+        $transient_key = 'wpsg_pending_' . $session->id;
         $pending       = get_transient($transient_key);
 
         if (!$pending || empty($pending['password'])) {
@@ -83,15 +83,15 @@ class Initrix_Webhook {
         }
 
         $expiry_date = date('Y-m-d', strtotime('+1 year'));
-        $result = Initrix_Provisioner::provision($full_email, $pending['password'], "active_until:{$expiry_date}");
+        $result = WPSG_Provisioner::provision($full_email, $pending['password'], "active_until:{$expiry_date}");
 
         if (is_wp_error($result)) {
             error_log("Initrix Stripe: Provision failed for {$full_email}: " . $result->get_error_message());
             return;
         }
 
-        update_user_meta($result, 'initrix_stripe_customer_id', $session->customer);
-        update_user_meta($result, 'initrix_stripe_subscription_id', $session->subscription);
+        update_user_meta($result, 'wpsg_stripe_customer_id', $session->customer);
+        update_user_meta($result, 'wpsg_stripe_subscription_id', $session->subscription);
         delete_transient($transient_key);
 
         error_log("Initrix Stripe: ✅ Provisioned {$full_email} (user_id={$result})");
@@ -100,27 +100,27 @@ class Initrix_Webhook {
     private static function handle_invoice_paid($invoice) {
         $user = self::find_user_by_stripe_customer($invoice->customer);
         if ($user) {
-            Initrix_Provisioner::extend_subscription($user->ID, 12);
+            WPSG_Provisioner::extend_subscription($user->ID, 12);
         }
     }
 
     private static function handle_subscription_deleted($subscription) {
         $user = self::find_user_by_stripe_customer($subscription->customer);
         if ($user) {
-            Initrix_Provisioner::lapse_access($user->ID);
+            WPSG_Provisioner::lapse_access($user->ID);
         }
     }
 
     private static function handle_payment_failed($invoice) {
         $user = self::find_user_by_stripe_customer($invoice->customer);
         if ($user) {
-            Initrix_Provisioner::lapse_access($user->ID);
+            WPSG_Provisioner::lapse_access($user->ID);
         }
     }
 
     private static function find_user_by_stripe_customer($customer_id) {
         $users = get_users([
-            'meta_key'   => 'initrix_stripe_customer_id',
+            'meta_key'   => 'wpsg_stripe_customer_id',
             'meta_value' => $customer_id,
             'number'     => 1,
         ]);
@@ -128,10 +128,10 @@ class Initrix_Webhook {
     }
 
     private static function get_secret_key() {
-        return defined('INITRIX_STRIPE_SECRET_KEY') ? INITRIX_STRIPE_SECRET_KEY : get_option('initrix_stripe_secret_key', '');
+        return defined('WPSG_STRIPE_SECRET_KEY') ? WPSG_STRIPE_SECRET_KEY : get_option('initrix_stripe_secret_key', '');
     }
 
     private static function get_webhook_secret() {
-        return defined('INITRIX_STRIPE_WEBHOOK_SECRET') ? INITRIX_STRIPE_WEBHOOK_SECRET : get_option('initrix_stripe_webhook_secret', '');
+        return defined('WPSG_STRIPE_WEBHOOK_SECRET') ? WPSG_STRIPE_WEBHOOK_SECRET : get_option('initrix_stripe_webhook_secret', '');
     }
 }

@@ -1,40 +1,40 @@
-.initrix-register-wrapper {
+.wpsg-register-wrapper {
     max-width: 480px;
     margin: 0 auto;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
-.initrix-register-wrapper label {
+.wpsg-register-wrapper label {
     display: block;
     font-weight: 600;
     margin-bottom: 4px;
 }
-.initrix-email-row {
+.wpsg-email-row {
     display: flex;
     align-items: center;
     gap: 4px;
 }
-.initrix-email-row input {
+.wpsg-email-row input {
     flex: 1;
     min-width: 0;
 }
-.initrix-email-row .initrix-at {
+.wpsg-email-row .wpsg-at {
     font-size: 1.2em;
     font-weight: bold;
     color: #555;
 }
-.initrix-email-row select {
+.wpsg-email-row select {
     width: auto;
 }
-.initrix-email-preview {
+.wpsg-email-preview {
     font-size: 0.9em;
     margin-top: 4px;
     color: #555;
 }
-.initrix-field-group {
+.wpsg-field-group {
     margin-bottom: 16px;
 }
-.initrix-field-group input,
-.initrix-field-group select {
+.wpsg-field-group input,
+.wpsg-field-group select {
     width: 100%;
     padding: 10px 12px;
     border: 1px solid #ccc;
@@ -42,20 +42,20 @@
     font-size: 16px;
     box-sizing: border-box;
 }
-.initrix-strength-bar {
+.wpsg-strength-bar {
     font-size: 0.85em;
     margin-top: 2px;
 }
-.initrix-validation-msg {
+.wpsg-validation-msg {
     font-size: 0.85em;
     margin-top: 2px;
 }
-.initrix-error-msg {
+.wpsg-error-msg {
     color: #dc3545;
     margin-bottom: 12px;
     font-weight: 500;
 }
-.initrix-submit-btn {
+.wpsg-submit-btn {
     width: 100%;
     padding: 14px;
     background-color: #1a73e8;
@@ -66,14 +66,14 @@
     font-weight: 600;
     cursor: pointer;
 }
-.initrix-submit-btn:hover {
+.wpsg-submit-btn:hover {
     background-color: #1557b0;
 }
-.initrix-submit-btn:disabled {
+.wpsg-submit-btn:disabled {
     background-color: #93b8f5;
     cursor: not-allowed;
 }
-.initrix-payment-notice {
+.wpsg-payment-notice {
     text-align: center;
     margin-top: 12px;
     color: #666;

@@ -1,10 +1,10 @@
 <?php
 
 /**
- * Registration form shortcode: [initrix_register]
+ * Registration form shortcode: [wpsg_register]
  * Renders prefix + domain dropdown + password + confirm-password.
  */
-class Initrix_Shortcode {
+class WPSG_Shortcode {
 
     public static function render($atts = []) {
         if (is_user_logged_in()) {
@@ -15,21 +15,21 @@ class Initrix_Shortcode {
 
         wp_enqueue_script(
             'initrix-register',
-            INITRIX_STRIPE_URL . 'assets/register.js',
+            WPSG_URL . 'assets/register.js',
             ['jquery'],
-            INITRIX_STRIPE_VERSION,
+            WPSG_VERSION,
             true
         );
         wp_localize_script('initrix-register', 'initrix_ajax', [
             'ajax_url'        => admin_url('admin-ajax.php'),
-            'nonce'           => wp_create_nonce('initrix_register_nonce'),
+            'nonce'           => wp_create_nonce('wpsg_register_nonce'),
             'publishable_key' => self::get_publishable_key(),
         ]);
         wp_enqueue_style(
             'initrix-register',
-            INITRIX_STRIPE_URL . 'assets/register.css',
+            WPSG_URL . 'assets/register.css',
             [],
-            INITRIX_STRIPE_VERSION
+            WPSG_VERSION
         );
 
         ob_start();
@@ -87,7 +87,7 @@ class Initrix_Shortcode {
     }
 
     public static function ajax_create_checkout() {
-        if (!wp_verify_nonce($_POST['nonce'] ?? '', 'initrix_register_nonce')) {
+        if (!wp_verify_nonce($_POST['nonce'] ?? '', 'wpsg_register_nonce')) {
             wp_send_json_error(['message' => 'Security check failed. Please refresh the page.']);
         }
 
@@ -112,7 +112,7 @@ class Initrix_Shortcode {
             wp_send_json_error(['message' => 'Invalid domain selected.']);
         }
 
-        $result = Initrix_Checkout::create_session($email_prefix, $domain, $password);
+        $result = WPSG_Checkout::create_session($email_prefix, $domain, $password);
 
         if (isset($result['error'])) {
             wp_send_json_error(['message' => $result['error']]);
@@ -122,10 +122,10 @@ class Initrix_Shortcode {
     }
 
     public static function get_domains() {
-        return apply_filters('initrix_registration_domains', ['initrix.com']);
+        return apply_filters('wpsg_registration_domains', ['initrix.com']);
     }
 
     private static function get_publishable_key() {
-        return defined('INITRIX_STRIPE_PUBLISHABLE_KEY') ? INITRIX_STRIPE_PUBLISHABLE_KEY : get_option('initrix_stripe_publishable_key', '');
+        return defined('WPSG_STRIPE_PUBLISHABLE_KEY') ? WPSG_STRIPE_PUBLISHABLE_KEY : get_option('initrix_stripe_publishable_key', '');
     }
 }

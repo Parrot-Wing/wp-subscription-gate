@@ -1,5 +1,5 @@
 jQuery(document).ready(function($) {
-    var form = $('#initrix-register-form');
+    var form = $('#wpsg-register-form');
     var submitBtn = $('#initrix-submit-btn');
     var errorsDiv = $('#initrix-form-errors');
 
@@ -48,13 +48,13 @@ jQuery(document).ready(function($) {
         errorsDiv.text('');
         submitBtn.prop('disabled', true).text('Connecting to Stripe...');
 
-        $.post(initrix_ajax.ajax_url, {
-            action:          'initrix_create_checkout',
+        $.post(wpsg_ajax.ajax_url, {
+            action:          'wpsg_create_checkout',
             email_prefix:    $('#initrix-email-prefix').val().trim(),
             domain:          $('#initrix-domain').val(),
             password:        $('#initrix-password').val(),
             password_confirm:$('#initrix-password-confirm').val(),
-            nonce:           initrix_ajax.nonce
+            nonce:           wpsg_ajax.nonce
         })
         .done(function(response) {
             if (response.success && response.data.url) {

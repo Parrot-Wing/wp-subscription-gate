@@ -3,7 +3,7 @@
 /**
  * Creates Stripe Checkout Sessions for annual subscription.
  */
-class Initrix_Checkout {
+class WPSG_Checkout {
 
     public static function create_session($email_prefix, $domain, $password) {
         \Stripe\Stripe::setApiKey(self::get_secret_key());
@@ -48,7 +48,7 @@ class Initrix_Checkout {
             return ['error' => 'Payment system temporarily unavailable. Please try again.'];
         }
 
-        set_transient('initrix_pending_' . $session->id, [
+        set_transient('wpsg_pending_' . $session->id, [
             'password'     => $password,
             'email_prefix' => $email_prefix,
             'domain'       => $domain,
@@ -61,10 +61,10 @@ class Initrix_Checkout {
     }
 
     private static function get_secret_key() {
-        return defined('INITRIX_STRIPE_SECRET_KEY') ? INITRIX_STRIPE_SECRET_KEY : get_option('initrix_stripe_secret_key', '');
+        return defined('WPSG_STRIPE_SECRET_KEY') ? WPSG_STRIPE_SECRET_KEY : get_option('initrix_stripe_secret_key', '');
     }
 
     private static function get_price_id() {
-        return defined('INITRIX_STRIPE_PRICE_ID') ? INITRIX_STRIPE_PRICE_ID : get_option('initrix_stripe_price_id', '');
+        return defined('WPSG_STRIPE_PRICE_ID') ? WPSG_STRIPE_PRICE_ID : get_option('initrix_stripe_price_id', '');
     }
 }
