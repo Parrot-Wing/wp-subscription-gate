@@ -1,18 +1,18 @@
 jQuery(document).ready(function($) {
     var form = $('#wpsg-register-form');
-    var submitBtn = $('#initrix-submit-btn');
-    var errorsDiv = $('#initrix-form-errors');
+    var submitBtn = $('#wpsg-submit-btn');
+    var errorsDiv = $('#wpsg-form-errors');
 
     // ---- Live email preview ----
     function updatePreview() {
-        var prefix = $('#initrix-email-prefix').val();
-        var domain = $('#initrix-domain').val();
-        $('#initrix-email-preview').text(prefix && domain ? prefix + '@' + domain : '');
+        var prefix = $('#wpsg-email-prefix').val();
+        var domain = $('#wpsg-domain').val();
+        $('#wpsg-email-preview').text(prefix && domain ? prefix + '@' + domain : '');
     }
-    $('#initrix-email-prefix, #initrix-domain').on('input change', updatePreview);
+    $('#wpsg-email-prefix, #wpsg-domain').on('input change', updatePreview);
 
     // ---- Password strength ----
-    $('#initrix-password').on('input', function() {
+    $('#wpsg-password').on('input', function() {
         var p = $(this).val();
         var score = 0;
         if (p.length >= 8)  score++;
@@ -26,16 +26,16 @@ jQuery(document).ready(function($) {
         var colors = ['#dc3545','#dc3545','#ffc107','#198754','#198754','#198754'];
         var idx = Math.min(score, 5);
 
-        $('#initrix-password-strength')
+        $('#wpsg-password-strength')
             .text('Strength: ' + labels[idx])
             .css('color', colors[idx]);
     });
 
     // ---- Password match ----
-    $('#initrix-password-confirm').on('input', function() {
-        var $el = $('#initrix-password-match');
+    $('#wpsg-password-confirm').on('input', function() {
+        var $el = $('#wpsg-password-match');
         if (!$(this).val()) { $el.text(''); return; }
-        if ($(this).val() === $('#initrix-password').val()) {
+        if ($(this).val() === $('#wpsg-password').val()) {
             $el.text('\u2713 Passwords match').css('color', '#198754');
         } else {
             $el.text('\u2717 Passwords do not match').css('color', '#dc3545');
@@ -50,10 +50,10 @@ jQuery(document).ready(function($) {
 
         $.post(wpsg_ajax.ajax_url, {
             action:          'wpsg_create_checkout',
-            email_prefix:    $('#initrix-email-prefix').val().trim(),
-            domain:          $('#initrix-domain').val(),
-            password:        $('#initrix-password').val(),
-            password_confirm:$('#initrix-password-confirm').val(),
+            email_prefix:    $('#wpsg-email-prefix').val().trim(),
+            domain:          $('#wpsg-domain').val(),
+            password:        $('#wpsg-password').val(),
+            password_confirm:$('#wpsg-password-confirm').val(),
             nonce:           wpsg_ajax.nonce
         })
         .done(function(response) {

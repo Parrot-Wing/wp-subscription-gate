@@ -37,7 +37,7 @@ class WPSG_Checkout {
                 'metadata' => [
                     'email_prefix' => $email_prefix,
                     'domain'       => $domain,
-                    'source'       => 'initrix-stripe-plugin',
+                    'source'       => 'wpsg-stripe-plugin',
                 ],
                 'success_url'    => $success_url . '?session_id={CHECKOUT_SESSION_ID}',
                 'cancel_url'     => $cancel_url,
@@ -61,10 +61,10 @@ class WPSG_Checkout {
     }
 
     private static function get_secret_key() {
-        return defined('WPSG_STRIPE_SECRET_KEY') ? WPSG_STRIPE_SECRET_KEY : get_option('initrix_stripe_secret_key', '');
+        return defined('WPSG_STRIPE_SECRET_KEY') ? WPSG_STRIPE_SECRET_KEY : get_option('wpsg_stripe_secret_key', '');
     }
 
     private static function get_price_id() {
-        return defined('WPSG_STRIPE_PRICE_ID') ? WPSG_STRIPE_PRICE_ID : get_option('initrix_stripe_price_id', '');
+        return defined('WPSG_STRIPE_PRICE_ID') ? WPSG_STRIPE_PRICE_ID : get_option('wpsg_stripe_price_id', '');
     }
 }

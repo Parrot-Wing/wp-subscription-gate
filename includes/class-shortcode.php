@@ -14,19 +14,19 @@ class WPSG_Shortcode {
         $domains = self::get_domains();
 
         wp_enqueue_script(
-            'initrix-register',
+            'wpsg-register',
             WPSG_URL . 'assets/register.js',
             ['jquery'],
             WPSG_VERSION,
             true
         );
-        wp_localize_script('initrix-register', 'initrix_ajax', [
+        wp_localize_script('wpsg-register', 'wpsg_ajax', [
             'ajax_url'        => admin_url('admin-ajax.php'),
             'nonce'           => wp_create_nonce('wpsg_register_nonce'),
             'publishable_key' => self::get_publishable_key(),
         ]);
         wp_enqueue_style(
-            'initrix-register',
+            'wpsg-register',
             WPSG_URL . 'assets/register.css',
             [],
             WPSG_VERSION
@@ -34,50 +34,50 @@ class WPSG_Shortcode {
 
         ob_start();
         ?>
-        <div class="initrix-register-wrapper">
-            <form id="initrix-register-form" method="post" action="" novalidate>
-                <div class="initrix-field-group">
-                    <label for="initrix-email-prefix">Email Address</label>
-                    <div class="initrix-email-row">
-                        <input type="text" id="initrix-email-prefix" name="email_prefix"
+        <div class="wpsg-register-wrapper">
+            <form id="wpsg-register-form" method="post" action="" novalidate>
+                <div class="wpsg-field-group">
+                    <label for="wpsg-email-prefix">Email Address</label>
+                    <div class="wpsg-email-row">
+                        <input type="text" id="wpsg-email-prefix" name="email_prefix"
                                placeholder="you" required autocomplete="username"
                                pattern="[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+"
                                title="Letters, numbers, and standard email characters">
-                        <span class="initrix-at">@</span>
-                        <select id="initrix-domain" name="domain" required>
+                        <span class="wpsg-at">@</span>
+                        <select id="wpsg-domain" name="domain" required>
                             <?php foreach ($domains as $d): ?>
                                 <option value="<?php echo esc_attr($d); ?>"><?php echo esc_html($d); ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="initrix-email-preview">
-                        Your email will be: <strong><span id="initrix-email-preview"></span></strong>
+                    <div class="wpsg-email-preview">
+                        Your email will be: <strong><span id="wpsg-email-preview"></span></strong>
                     </div>
                 </div>
 
-                <div class="initrix-field-group">
-                    <label for="initrix-password">Password</label>
-                    <input type="password" id="initrix-password" name="password"
+                <div class="wpsg-field-group">
+                    <label for="wpsg-password">Password</label>
+                    <input type="password" id="wpsg-password" name="password"
                            required autocomplete="new-password" minlength="8">
-                    <div id="initrix-password-strength" class="initrix-strength-bar"></div>
+                    <div id="wpsg-password-strength" class="wpsg-strength-bar"></div>
                 </div>
 
-                <div class="initrix-field-group">
-                    <label for="initrix-password-confirm">Confirm Password</label>
-                    <input type="password" id="initrix-password-confirm" name="password_confirm"
+                <div class="wpsg-field-group">
+                    <label for="wpsg-password-confirm">Confirm Password</label>
+                    <input type="password" id="wpsg-password-confirm" name="password_confirm"
                            required autocomplete="new-password">
-                    <div id="initrix-password-match" class="initrix-validation-msg"></div>
+                    <div id="wpsg-password-match" class="wpsg-validation-msg"></div>
                 </div>
 
-                <div id="initrix-form-errors" class="initrix-error-msg"></div>
+                <div id="wpsg-form-errors" class="wpsg-error-msg"></div>
 
-                <div class="initrix-field-group">
-                    <button type="submit" id="initrix-submit-btn" class="initrix-submit-btn">
+                <div class="wpsg-field-group">
+                    <button type="submit" id="wpsg-submit-btn" class="wpsg-submit-btn">
                         Subscribe &mdash; Create Mailbox
                     </button>
                 </div>
 
-                <div class="initrix-payment-notice">
+                <div class="wpsg-payment-notice">
                     <small>&#x1f512; You will be redirected to Stripe for secure credit card payment. Annual subscription.</small>
                 </div>
             </form>
@@ -126,6 +126,6 @@ class WPSG_Shortcode {
     }
 
     private static function get_publishable_key() {
-        return defined('WPSG_STRIPE_PUBLISHABLE_KEY') ? WPSG_STRIPE_PUBLISHABLE_KEY : get_option('initrix_stripe_publishable_key', '');
+        return defined('WPSG_STRIPE_PUBLISHABLE_KEY') ? WPSG_STRIPE_PUBLISHABLE_KEY : get_option('wpsg_stripe_publishable_key', '');
     }
 }
