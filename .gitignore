@@ -1,0 +1,2 @@
+# Nothing to ignore — this plugin is entirely our code.
+# (vendor/stripe is a third-party SDK we intentionally track for deployment stability.)
