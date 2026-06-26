@@ -78,3 +78,44 @@
     margin-top: 12px;
     color: #666;
 }
+
+/* ---- Mail Login shortcode buttons ---- */
+.wpsg-mail-login {
+    text-align: center;
+    padding: 30px 20px;
+    max-width: 480px;
+    margin: 0 auto;
+}
+.wpsg-mail-login p {
+    font-size: 16px;
+    margin-bottom: 20px;
+}
+.wpsg-mail-login-lapsed p {
+    color: #b85c5c;
+}
+.wpsg-btn {
+    display: inline-block;
+    padding: 12px 32px;
+    font-size: 16px;
+    font-weight: 600;
+    text-decoration: none;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background: #555;
+    color: #fff;
+}
+.wpsg-btn:hover {
+    opacity: 0.9;
+    color: #fff;
+}
+.wpsg-btn-primary {
+    background: #0073aa;
+}
+.wpsg-btn-renew {
+    background: #d9534f;
+}
+.wpsg-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

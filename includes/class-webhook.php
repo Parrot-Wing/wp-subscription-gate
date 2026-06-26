@@ -64,7 +64,24 @@ class WPSG_Webhook {
             return;
         }
 
-        $metadata     = $session->metadata ?? [];
+        $metadata = $session->metadata ?? [];
+
+        // ---- RENEWAL PATH (lapsed user resubscribing) ----
+        if (!empty($metadata['is_renewal']) && !empty($metadata['user_id'])) {
+            $user_id = (int) $metadata['user_id'];
+            $user    = get_user_by('id', $user_id);
+            if (!$user) {
+                error_log("Initrix Stripe: Renewal for unknown user_id={$user_id}");
+                return;
+            }
+            WPSG_Provisioner::extend_subscription($user_id, 12);
+            update_user_meta($user_id, 'wpsg_stripe_customer_id', $session->customer);
+            update_user_meta($user_id, 'wpsg_stripe_subscription_id', $session->subscription);
+            error_log("Initrix Stripe: ✅ Renewed {$user->user_login} (user_id={$user_id})");
+            return;
+        }
+
+        // ---- NEW SIGNUP PATH ----
         $email_prefix = $metadata['email_prefix'] ?? null;
         $domain       = $metadata['domain'] ?? null;
 
