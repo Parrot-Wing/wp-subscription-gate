@@ -75,8 +75,8 @@ class WPSG_Webhook {
                 return;
             }
             WPSG_Provisioner::extend_subscription($user_id, 12);
-            update_user_meta($user_id, 'wpsg_stripe_customer_id', $session->customer);
-            update_user_meta($user_id, 'wpsg_stripe_subscription_id', $session->subscription);
+            update_user_meta($user_id, 'wpsg_stripe_customer_id', $session->customer->id);
+            update_user_meta($user_id, 'wpsg_stripe_subscription_id', $session->subscription->id);
             error_log("Initrix Stripe: ✅ Renewed {$user->user_login} (user_id={$user_id})");
             return;
         }
@@ -107,8 +107,8 @@ class WPSG_Webhook {
             return;
         }
 
-        update_user_meta($result, 'wpsg_stripe_customer_id', $session->customer);
-        update_user_meta($result, 'wpsg_stripe_subscription_id', $session->subscription);
+        update_user_meta($result, 'wpsg_stripe_customer_id', $session->customer->id);
+        update_user_meta($result, 'wpsg_stripe_subscription_id', $session->subscription->id);
         delete_transient($transient_key);
 
         error_log("Initrix Stripe: ✅ Provisioned {$full_email} (user_id={$result})");
