@@ -30,11 +30,13 @@ add_action('rest_api_init', function () {
 // ---- Register shortcodes ----
 add_shortcode('wpsg_register',    ['WPSG_Shortcode', 'render']);
 add_shortcode('wpsg_mail_login',  'wpsg_mail_login_shortcode');
+add_shortcode('wpsg_account',     'wpsg_account_shortcode');
 
 // ---- Register AJAX handlers ----
 add_action('wp_ajax_wpsg_create_checkout',        ['WPSG_Shortcode', 'ajax_create_checkout']);
 add_action('wp_ajax_nopriv_wpsg_create_checkout',  ['WPSG_Shortcode', 'ajax_create_checkout']);
 add_action('wp_ajax_wpsg_renew_checkout',          'wpsg_renew_checkout_ajax');
+add_action('wp_ajax_wpsg_portal_session',          'wpsg_portal_session_ajax');
 
 // ---- Conditional navigation menu ----
 // Logged out: show "Login" and "Registration"
@@ -56,7 +58,7 @@ add_filter('wp_nav_menu_objects', function ($items) {
     return $items;
 });
 
-// Rename menu items for logged-in users
+// Rename menu items for logged-in users and fix Account URL
 add_filter('wp_nav_menu_objects', function ($items) {
     foreach ($items as $item) {
         if ($item->title === 'Email Login') {
@@ -64,6 +66,7 @@ add_filter('wp_nav_menu_objects', function ($items) {
         }
         if ($item->title === 'Account') {
             $item->title = 'Account Management';
+            $item->url   = home_url('/profile/');
         }
     }
     return $items;
@@ -78,8 +81,25 @@ add_filter('wp_nav_menu_items', function ($items) {
     return $items;
 });
 
+// ---- Auto-redirect active users from /mail/ straight to Roundcube ----
+add_action('template_redirect', function () {
+    if (!is_page('mail')) return;
+    if (!is_user_logged_in()) return;
+
+    $user   = wp_get_current_user();
+    $status = WPSG_Provisioner::get_access_status($user->ID);
+
+    // Active and lifetime users go straight to webmail
+    if ($status === 'lifetime' || ($status && strpos($status, 'active_until:') === 0)) {
+        wp_redirect('https://mail.initrix.com/');
+        exit;
+    }
+    // Lapsed and unknown users see the page content
+});
+
 /**
- * [wpsg_mail_login] shortcode — subscription status check + Roundcube redirect or lapse warning.
+ * [wpsg_mail_login] shortcode — fallback for lapsed / logged-out users.
+ * Active users are auto-redirected by template_redirect above.
  */
 function wpsg_mail_login_shortcode() {
     ob_start();
@@ -96,26 +116,6 @@ function wpsg_mail_login_shortcode() {
 
     $user   = wp_get_current_user();
     $status = WPSG_Provisioner::get_access_status($user->ID);
-
-    if ($status === 'lifetime') {
-        ?>
-        <div class="wpsg-mail-login">
-            <a href="https://mail.initrix.com/" class="wpsg-btn wpsg-btn-primary">Go to Webmail</a>
-        </div>
-        <?php
-        return ob_get_clean();
-    }
-
-    if ($status && strpos($status, 'active_until:') === 0) {
-        $date = substr($status, 13);
-        ?>
-        <div class="wpsg-mail-login">
-            <p>Your mailbox is active until <strong><?php echo esc_html($date); ?></strong>.</p>
-            <a href="https://mail.initrix.com/" class="wpsg-btn wpsg-btn-primary">Go to Webmail</a>
-        </div>
-        <?php
-        return ob_get_clean();
-    }
 
     // Lapsed — show renewal prompt
     if ($status === 'lapsed') {
@@ -158,13 +158,168 @@ function wpsg_mail_login_shortcode() {
         return ob_get_clean();
     }
 
-    // Unknown/falsy status — allow (fail-safe)
+    // Active/lifetime should never reach here (redirected), but fail-safe:
     ?>
     <div class="wpsg-mail-login">
         <a href="https://mail.initrix.com/" class="wpsg-btn wpsg-btn-primary">Go to Webmail</a>
     </div>
     <?php
     return ob_get_clean();
+}
+
+/**
+ * [wpsg_account] shortcode — subscription status + Stripe Customer Portal.
+ */
+function wpsg_account_shortcode() {
+    ob_start();
+
+    if (!is_user_logged_in()) {
+        ?>
+        <div class="wpsg-account">
+            <p>Please log in to view your account.</p>
+            <a href="<?php echo esc_url(home_url('/login-2/')); ?>" class="wpsg-btn">Log In</a>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+
+    $user   = wp_get_current_user();
+    $status = WPSG_Provisioner::get_access_status($user->ID);
+    $until  = get_user_meta($user->ID, 'wpsg_active_until', true);
+    $customer_id = get_user_meta($user->ID, 'wpsg_stripe_customer_id', true);
+
+    // Clean up serialized blobs — extract just the ID string
+    if ($customer_id && !is_string($customer_id)) {
+        $customer_id = '';
+    }
+
+    wp_enqueue_style('wpsg-register', WPSG_URL . 'assets/register.css', [], WPSG_VERSION);
+    ?>
+
+    <div class="wpsg-account">
+        <h2>Subscription</h2>
+
+        <?php if ($status === 'lifetime'): ?>
+            <p>Status: <strong>Lifetime</strong></p>
+            <p>Your mailbox has permanent access.</p>
+        <?php elseif ($status && strpos($status, 'active_until:') === 0): ?>
+            <p>Status: <strong>Active</strong></p>
+            <p>Your mailbox is active until <strong><?php echo esc_html($until); ?></strong>.</p>
+            <?php if ($customer_id): ?>
+                <p>
+                    <button id="wpsg-manage-btn" class="wpsg-btn wpsg-btn-primary">Manage Subscription</button>
+                </p>
+                <p id="wpsg-portal-error" class="wpsg-error-msg" style="display:none;"></p>
+                <script>
+                document.getElementById('wpsg-manage-btn').addEventListener('click', function() {
+                    var btn = this;
+                    btn.disabled = true;
+                    btn.textContent = 'Loading…';
+                    fetch('<?php echo esc_js(admin_url('admin-ajax.php')); ?>', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: 'action=wpsg_portal_session&_ajax_nonce=<?php echo esc_js(wp_create_nonce('wpsg_portal_nonce')); ?>'
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.success && data.data.url) {
+                            window.location.href = data.data.url;
+                        } else {
+                            document.getElementById('wpsg-portal-error').textContent = data.data.message || 'Something went wrong.';
+                            document.getElementById('wpsg-portal-error').style.display = 'block';
+                            btn.disabled = false;
+                            btn.textContent = 'Manage Subscription';
+                        }
+                    })
+                    .catch(function() {
+                        document.getElementById('wpsg-portal-error').textContent = 'Network error. Please try again.';
+                        document.getElementById('wpsg-portal-error').style.display = 'block';
+                        btn.disabled = false;
+                        btn.textContent = 'Manage Subscription';
+                    });
+                });
+                </script>
+            <?php else: ?>
+                <p><em>Subscription management is not available for this account. Please contact support for changes.</em></p>
+            <?php endif; ?>
+        <?php elseif ($status === 'lapsed'): ?>
+            <p>Status: <strong>Lapsed</strong></p>
+            <p>Your subscription has ended. Your mail data is preserved.</p>
+            <p>
+                <button id="wpsg-renew-btn" class="wpsg-btn wpsg-btn-renew">Renew Subscription</button>
+            </p>
+            <p id="wpsg-renew-error" class="wpsg-error-msg" style="display:none;"></p>
+            <script>
+            document.getElementById('wpsg-renew-btn').addEventListener('click', function() {
+                var btn = this;
+                btn.disabled = true;
+                btn.textContent = 'Connecting to Stripe…';
+                fetch('<?php echo esc_js(admin_url('admin-ajax.php')); ?>', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: 'action=wpsg_renew_checkout&_ajax_nonce=<?php echo esc_js(wp_create_nonce('wpsg_renew_nonce')); ?>'
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success && data.data.url) {
+                        window.location.href = data.data.url;
+                    } else {
+                        document.getElementById('wpsg-renew-error').textContent = data.data.message || 'Something went wrong. Please try again.';
+                        document.getElementById('wpsg-renew-error').style.display = 'block';
+                        btn.disabled = false;
+                        btn.textContent = 'Renew Subscription';
+                    }
+                })
+                .catch(function() {
+                    document.getElementById('wpsg-renew-error').textContent = 'Network error. Please try again.';
+                    document.getElementById('wpsg-renew-error').style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Renew Subscription';
+                });
+            });
+            </script>
+        <?php else: ?>
+            <p>Status: <strong>Unknown</strong></p>
+            <p>Please contact support.</p>
+        <?php endif; ?>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+
+/**
+ * AJAX handler: creates a Stripe Customer Portal session.
+ */
+function wpsg_portal_session_ajax() {
+    check_ajax_referer('wpsg_portal_nonce');
+
+    if (!is_user_logged_in()) {
+        wp_send_json_error(['message' => 'You must be logged in.']);
+    }
+
+    $user        = wp_get_current_user();
+    $customer_id = get_user_meta($user->ID, 'wpsg_stripe_customer_id', true);
+
+    // Handle serialized blobs
+    if (!$customer_id || !is_string($customer_id)) {
+        wp_send_json_error(['message' => 'No Stripe account linked. Please contact support.']);
+    }
+
+    \Stripe\Stripe::setApiKey(
+        defined('WPSG_STRIPE_SECRET_KEY') ? WPSG_STRIPE_SECRET_KEY : get_option('wpsg_stripe_secret_key', '')
+    );
+
+    try {
+        $session = \Stripe\BillingPortal\Session::create([
+            'customer'   => $customer_id,
+            'return_url' => home_url('/profile/'),
+        ]);
+
+        wp_send_json_success(['url' => $session->url]);
+    } catch (\Exception $e) {
+        error_log("Initrix Stripe: Portal session failed for user {$user->ID}: " . $e->getMessage());
+        wp_send_json_error(['message' => 'Could not open subscription management. Please try again.']);
+    }
 }
 
 /**
