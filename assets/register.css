@@ -15,7 +15,8 @@
 }
 .wpsg-email-row input {
     flex: 1;
-    min-width: 0;
+    min-width: 280px;
+    width: auto;
 }
 .wpsg-email-row .wpsg-at {
     font-size: 1.2em;

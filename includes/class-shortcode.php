@@ -40,7 +40,7 @@ class WPSG_Shortcode {
                     <label for="wpsg-email-prefix">Email Address</label>
                     <div class="wpsg-email-row">
                         <input type="text" id="wpsg-email-prefix" name="email_prefix"
-                               placeholder="you" required autocomplete="username"
+                               placeholder="username" required autocomplete="username"
                                pattern="[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+"
                                title="Letters, numbers, and standard email characters">
                         <span class="wpsg-at">@</span>
