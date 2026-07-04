@@ -81,6 +81,30 @@ add_filter('wp_nav_menu_items', function ($items) {
     return $items;
 });
 
+// ---- Allow login with email prefix when bare username not found ----
+add_filter('authenticate', function ($user, $username, $password) {
+    // Only intervene when default auth says "invalid username" and no @ in input
+    if (!is_wp_error($user) || $user->get_error_code() !== 'invalid_username') {
+        return $user;
+    }
+    if (strpos($username, '@') !== false) {
+        return $user;
+    }
+
+    $full_email = $username . '@initrix.com';
+    $wp_user    = get_user_by('login', $full_email);
+
+    if (!$wp_user) {
+        return $user; // still invalid — let the original error stand
+    }
+
+    if (!wp_check_password($password, $wp_user->user_pass, $wp_user->ID)) {
+        return new WP_Error('incorrect_password', __('<strong>Error:</strong> The password you entered is incorrect.'));
+    }
+
+    return $wp_user;
+}, 30, 3);
+
 // ---- Auto-redirect active users from /mail/ straight to Roundcube ----
 add_action('template_redirect', function () {
     if (!is_page('mail')) return;
