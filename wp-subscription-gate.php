@@ -69,6 +69,15 @@ add_filter('wp_nav_menu_objects', function ($items) {
     return $items;
 });
 
+// Append logout link to navigation menu for logged-in users
+add_filter('wp_nav_menu_items', function ($items) {
+    if (is_user_logged_in()) {
+        $logout_url = wp_logout_url(home_url());
+        $items .= '<li class="menu-item menu-item-logout"><a href="' . esc_url($logout_url) . '">Logout</a></li>';
+    }
+    return $items;
+});
+
 /**
  * [wpsg_mail_login] shortcode — subscription status check + Roundcube redirect or lapse warning.
  */
