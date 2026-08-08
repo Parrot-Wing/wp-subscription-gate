@@ -31,7 +31,7 @@ class WPSG_Webhook {
             return new WP_REST_Response('Invalid signature', 403);
         }
 
-        error_log("Initrix Stripe: Received event {$event->type}");
+        error_log("w3i3 Stripe: Received event {$event->type}");
 
         switch ($event->type) {
             case 'checkout.session.completed':
@@ -60,7 +60,7 @@ class WPSG_Webhook {
                 'expand' => ['customer', 'subscription'],
             ]);
         } catch (\Exception $e) {
-            error_log("Initrix Stripe: Failed to retrieve session {$session->id}: " . $e->getMessage());
+            error_log("w3i3 Stripe: Failed to retrieve session {$session->id}: " . $e->getMessage());
             return;
         }
 
@@ -71,13 +71,13 @@ class WPSG_Webhook {
             $user_id = (int) $metadata['user_id'];
             $user    = get_user_by('id', $user_id);
             if (!$user) {
-                error_log("Initrix Stripe: Renewal for unknown user_id={$user_id}");
+                error_log("w3i3 Stripe: Renewal for unknown user_id={$user_id}");
                 return;
             }
             WPSG_Provisioner::extend_subscription($user_id, 12);
             update_user_meta($user_id, 'wpsg_stripe_customer_id', $session->customer->id);
             update_user_meta($user_id, 'wpsg_stripe_subscription_id', $session->subscription->id);
-            error_log("Initrix Stripe: ✅ Renewed {$user->user_login} (user_id={$user_id})");
+            error_log("w3i3 Stripe: ✅ Renewed {$user->user_login} (user_id={$user_id})");
             return;
         }
 
@@ -86,7 +86,7 @@ class WPSG_Webhook {
         $domain       = $metadata['domain'] ?? null;
 
         if (!$email_prefix || !$domain) {
-            error_log("Initrix Stripe: Missing email_prefix/domain in session metadata for {$session->id}");
+            error_log("w3i3 Stripe: Missing email_prefix/domain in session metadata for {$session->id}");
             return;
         }
 
@@ -95,7 +95,7 @@ class WPSG_Webhook {
         $pending       = get_transient($transient_key);
 
         if (!$pending || empty($pending['password'])) {
-            error_log("Initrix Stripe: No pending signup for session {$session->id}");
+            error_log("w3i3 Stripe: No pending signup for session {$session->id}");
             return;
         }
 
@@ -103,7 +103,7 @@ class WPSG_Webhook {
         $result = WPSG_Provisioner::provision($full_email, $pending['password'], "active_until:{$expiry_date}");
 
         if (is_wp_error($result)) {
-            error_log("Initrix Stripe: Provision failed for {$full_email}: " . $result->get_error_message());
+            error_log("w3i3 Stripe: Provision failed for {$full_email}: " . $result->get_error_message());
             return;
         }
 
@@ -111,7 +111,7 @@ class WPSG_Webhook {
         update_user_meta($result, 'wpsg_stripe_subscription_id', $session->subscription->id);
         delete_transient($transient_key);
 
-        error_log("Initrix Stripe: ✅ Provisioned {$full_email} (user_id={$result})");
+        error_log("w3i3 Stripe: ✅ Provisioned {$full_email} (user_id={$result})");
     }
 
     private static function handle_invoice_paid($invoice) {

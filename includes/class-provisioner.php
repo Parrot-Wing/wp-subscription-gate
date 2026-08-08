@@ -19,7 +19,7 @@ class WPSG_Provisioner {
         $user_id = wp_create_user($full_email, $password, $full_email);
 
         if (is_wp_error($user_id)) {
-            error_log("Initrix Stripe: wp_create_user failed for {$full_email}: " . $user_id->get_error_message());
+            error_log("WPSG Stripe: wp_create_user failed for {$full_email}: " . $user_id->get_error_message());
             return $user_id;
         }
 
@@ -27,7 +27,7 @@ class WPSG_Provisioner {
         self::set_access_status($user_id, $access_status);
         wp_update_user(['ID' => $user_id, 'display_name' => $full_email]);
 
-        error_log("Initrix Stripe: Provisioned {$full_email} (ID={$user_id}, status={$access_status})");
+        error_log("WPSG Stripe: Provisioned {$full_email} (ID={$user_id}, status={$access_status})");
         return $user_id;
     }
 
@@ -49,14 +49,14 @@ class WPSG_Provisioner {
         $new_date = date('Y-m-d', strtotime($base . " +{$months} months"));
         update_user_meta($user_id, 'wpsg_active_until', $new_date);
         update_user_meta($user_id, 'wpsg_access_status', "active_until:{$new_date}");
-        error_log("Initrix Stripe: Extended user {$user_id} to {$new_date}");
+        error_log("WPSG Stripe: Extended user {$user_id} to {$new_date}");
         return $new_date;
     }
 
     public static function lapse_access($user_id) {
         update_user_meta($user_id, 'wpsg_access_status', 'lapsed');
         update_user_meta($user_id, 'wpsg_active_until', date('Y-m-d', time() - 86400));
-        error_log("Initrix Stripe: Lapsed access for user {$user_id}");
+        error_log("WPSG Stripe: Lapsed access for user {$user_id}");
     }
 
     public static function get_access_status($user_id) {

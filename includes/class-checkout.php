@@ -44,7 +44,7 @@ class WPSG_Checkout {
                 'customer_email' => $full_email,
             ]);
         } catch (\Stripe\Exception\ApiErrorException $e) {
-            error_log("Initrix Stripe: Checkout error: " . $e->getMessage());
+            error_log("WPSG Stripe: Checkout error: " . $e->getMessage());
             return ['error' => 'Payment system temporarily unavailable. Please try again.'];
         }
 
@@ -55,7 +55,7 @@ class WPSG_Checkout {
             'created'      => time(),
         ], 24 * HOUR_IN_SECONDS);
 
-        error_log("Initrix Stripe: Checkout session {$session->id} for {$full_email}");
+        error_log("WPSG Stripe: Checkout session {$session->id} for {$full_email}");
 
         return ['url' => $session->url];
     }

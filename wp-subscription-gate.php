@@ -1,10 +1,10 @@
 <?php
 /**
  * Plugin Name: WP Subscription Gate
- * Description: Stripe Checkout annual subscription for Initrix mailboxes. No paid plugin dependency.
+ * Description: Stripe Checkout annual subscription for hosted mailboxes. No paid plugin dependency.
  * Version: 1.0.0
  * Requires PHP: 8.3
- * Author: Initrix
+ * Author: WPSG
  */
 
 if (!defined('ABSPATH')) exit;
@@ -91,7 +91,7 @@ add_filter('authenticate', function ($user, $username, $password) {
         return $user;
     }
 
-    $full_email = $username . '@initrix.com';
+    $full_email = $username . '@' . wp_parse_url(home_url(), PHP_URL_HOST);
     $wp_user    = get_user_by('login', $full_email);
 
     if (!$wp_user) {
@@ -115,7 +115,7 @@ add_action('template_redirect', function () {
 
     // Active and lifetime users go straight to webmail
     if ($status === 'lifetime' || ($status && strpos($status, 'active_until:') === 0)) {
-        wp_redirect('https://mail.initrix.com/');
+        wp_redirect('https://mail.' . wp_parse_url(home_url(), PHP_URL_HOST) . '/');
         exit;
     }
     // Lapsed and unknown users see the page content
@@ -185,7 +185,7 @@ function wpsg_mail_login_shortcode() {
     // Active/lifetime should never reach here (redirected), but fail-safe:
     ?>
     <div class="wpsg-mail-login">
-        <a href="https://mail.initrix.com/" class="wpsg-btn wpsg-btn-primary">Go to Webmail</a>
+        <a href="<?php echo esc_url('https://mail.' . wp_parse_url(home_url(), PHP_URL_HOST) . '/'); ?>" class="wpsg-btn wpsg-btn-primary">Go to Webmail</a>
     </div>
     <?php
     return ob_get_clean();
@@ -341,7 +341,7 @@ function wpsg_portal_session_ajax() {
 
         wp_send_json_success(['url' => $session->url]);
     } catch (\Exception $e) {
-        error_log("Initrix Stripe: Portal session failed for user {$user->ID}: " . $e->getMessage());
+        error_log("WPSG Stripe: Portal session failed for user {$user->ID}: " . $e->getMessage());
         wp_send_json_error(['message' => 'Could not open subscription management. Please try again.']);
     }
 }
@@ -384,7 +384,7 @@ function wpsg_renew_checkout_ajax() {
 
         wp_send_json_success(['url' => $session->url]);
     } catch (\Exception $e) {
-        error_log("Initrix Stripe: Renew checkout failed for user {$user->ID}: " . $e->getMessage());
+        error_log("WPSG Stripe: Renew checkout failed for user {$user->ID}: " . $e->getMessage());
         wp_send_json_error(['message' => 'Could not create checkout session. Please try again.']);
     }
 }

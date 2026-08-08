@@ -122,7 +122,7 @@ class WPSG_Shortcode {
     }
 
     public static function get_domains() {
-        return apply_filters('wpsg_registration_domains', ['initrix.com']);
+        return apply_filters('wpsg_registration_domains', [wp_parse_url(home_url(), PHP_URL_HOST)]);
     }
 
     private static function get_publishable_key() {
