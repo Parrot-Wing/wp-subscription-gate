@@ -37,7 +37,7 @@ class WPSG_Provisioner {
         if ($access_status === 'lifetime') {
             update_user_meta($user_id, 'wpsg_active_until', '9999-12-31');
         } elseif (strpos($access_status, 'active_until:') === 0) {
-            update_user_meta($user_id, 'wpsg_active_until', substr($access_status, 13));
+            update_user_meta($user_id, 'wpsg_active_until', explode(':', $access_status, 2)[1] ?? '');
         } elseif ($access_status === 'lapsed') {
             update_user_meta($user_id, 'wpsg_active_until', date('Y-m-d', time() - 86400));
         }

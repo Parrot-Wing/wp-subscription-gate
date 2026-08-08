@@ -16,6 +16,13 @@ define('WPSG_URL', plugin_dir_url(__FILE__));
 // ---- Stripe SDK ----
 require_once WPSG_PATH . 'vendor/stripe/stripe-php/init.php';
 
+// ---- Helper: current hostname (with fallback) ----
+function wpsg_current_host() {
+    $host = wp_parse_url(home_url(), PHP_URL_HOST);
+    return $host ?: ($_SERVER['HTTP_HOST'] ?? 'localhost');
+}
+
+
 // ---- Our Classes ----
 require_once WPSG_PATH . 'includes/class-provisioner.php';
 require_once WPSG_PATH . 'includes/class-webhook.php';
@@ -91,7 +98,7 @@ add_filter('authenticate', function ($user, $username, $password) {
         return $user;
     }
 
-    $full_email = $username . '@' . wp_parse_url(home_url(), PHP_URL_HOST);
+    $full_email = $username . '@' . wpsg_current_host();
     $wp_user    = get_user_by('login', $full_email);
 
     if (!$wp_user) {
@@ -115,7 +122,7 @@ add_action('template_redirect', function () {
 
     // Active and lifetime users go straight to webmail
     if ($status === 'lifetime' || ($status && strpos($status, 'active_until:') === 0)) {
-        wp_redirect('https://mail.' . wp_parse_url(home_url(), PHP_URL_HOST) . '/');
+        wp_redirect('https://mail.' . wpsg_current_host() . '/');
         exit;
     }
     // Lapsed and unknown users see the page content
@@ -146,11 +153,11 @@ function wpsg_mail_login_shortcode() {
         ?>
         <div class="wpsg-mail-login wpsg-mail-login-lapsed">
             <p>⚠️ Your mailbox access has been suspended because your subscription lapsed. Your mail is preserved and you will regain access as soon as you renew.</p>
-            <button id="wpsg-renew-btn" class="wpsg-btn wpsg-btn-renew">Renew Subscription</button>
-            <p id="wpsg-renew-error" class="wpsg-error-msg" style="display:none;"></p>
+            <button id="wpsg-renew-btn-mail" class="wpsg-btn wpsg-btn-renew">Renew Subscription</button>
+            <p id="wpsg-renew-error-mail" class="wpsg-error-msg" style="display:none;"></p>
         </div>
         <script>
-        document.getElementById('wpsg-renew-btn').addEventListener('click', function() {
+        document.getElementById('wpsg-renew-btn-mail').addEventListener('click', function() {
             var btn = this;
             btn.disabled = true;
             btn.textContent = 'Connecting to Stripe…';
@@ -164,15 +171,15 @@ function wpsg_mail_login_shortcode() {
                 if (data.success && data.data.url) {
                     window.location.href = data.data.url;
                 } else {
-                    document.getElementById('wpsg-renew-error').textContent = data.data.message || 'Something went wrong. Please try again.';
-                    document.getElementById('wpsg-renew-error').style.display = 'block';
+                    document.getElementById('wpsg-renew-error-mail').textContent = data.data.message || 'Something went wrong. Please try again.';
+                    document.getElementById('wpsg-renew-error-mail').style.display = 'block';
                     btn.disabled = false;
                     btn.textContent = 'Renew Subscription';
                 }
             })
             .catch(function() {
-                document.getElementById('wpsg-renew-error').textContent = 'Network error. Please try again.';
-                document.getElementById('wpsg-renew-error').style.display = 'block';
+                document.getElementById('wpsg-renew-error-mail').textContent = 'Network error. Please try again.';
+                document.getElementById('wpsg-renew-error-mail').style.display = 'block';
                 btn.disabled = false;
                 btn.textContent = 'Renew Subscription';
             });
@@ -185,7 +192,7 @@ function wpsg_mail_login_shortcode() {
     // Active/lifetime should never reach here (redirected), but fail-safe:
     ?>
     <div class="wpsg-mail-login">
-        <a href="<?php echo esc_url('https://mail.' . wp_parse_url(home_url(), PHP_URL_HOST) . '/'); ?>" class="wpsg-btn wpsg-btn-primary">Go to Webmail</a>
+        <a href="<?php echo esc_url('https://mail.' . wpsg_current_host() . '/'); ?>" class="wpsg-btn wpsg-btn-primary">Go to Webmail</a>
     </div>
     <?php
     return ob_get_clean();
@@ -376,6 +383,7 @@ function wpsg_renew_checkout_ajax() {
             'line_items'        => [['price' => $price_id, 'quantity' => 1]],
             'success_url'       => home_url('/mail/'),
             'cancel_url'        => home_url('/mail/'),
+            'customer_email'    => $user->user_email,
             'metadata'          => [
                 'is_renewal'  => '1',
                 'user_id'     => $user->ID,

@@ -28,7 +28,6 @@ class WPSG_Checkout {
 
         try {
             $session = \Stripe\Checkout\Session::create([
-                'payment_method_types' => ['card'],
                 'mode'                 => 'subscription',
                 'line_items'           => [[
                     'price'    => $price_id,
