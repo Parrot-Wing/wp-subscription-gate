@@ -51,12 +51,25 @@ class WPSG_Checkout {
             'password'     => $password,
             'email_prefix' => $email_prefix,
             'domain'       => $domain,
+            'ip'           => self::get_client_ip(),
             'created'      => time(),
         ], 24 * HOUR_IN_SECONDS);
 
         error_log("WPSG Stripe: Checkout session {$session->id} for {$full_email}");
 
         return ['url' => $session->url];
+    }
+
+    /**
+     * Best-effort client IP. Runs in the browser context (AJAX), so this is
+     * the customer's IP, not Stripe's.
+     */
+    private static function get_client_ip() {
+        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $parts = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+            return trim($parts[0]);
+        }
+        return isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
     }
 
     private static function get_secret_key() {
