@@ -28,11 +28,24 @@ require_once WPSG_PATH . 'includes/class-provisioner.php';
 require_once WPSG_PATH . 'includes/class-webhook.php';
 require_once WPSG_PATH . 'includes/class-checkout.php';
 require_once WPSG_PATH . 'includes/class-shortcode.php';
+require_once WPSG_PATH . 'includes/class-settings.php';
+require_once WPSG_PATH . 'includes/class-notifications.php';
+
+/**
+ * Webmail URL (derived from the site domain; overridable via the
+ * 'wpsg_mail_url' filter).
+ */
+function wpsg_mail_url() {
+    return apply_filters('wpsg_mail_url', 'https://mail.' . wpsg_current_host() . '/');
+}
 
 // ---- Register REST route (webhook) ----
 add_action('rest_api_init', function () {
     WPSG_Webhook::register_route();
 });
+
+// ---- Register email notification settings ----
+WPSG_Settings::register();
 
 // ---- Register shortcodes ----
 add_shortcode('wpsg_register',    ['WPSG_Shortcode', 'render']);
@@ -122,7 +135,7 @@ add_action('template_redirect', function () {
 
     // Active and lifetime users go straight to webmail
     if ($status === 'lifetime' || ($status && strpos($status, 'active_until:') === 0)) {
-        wp_redirect('https://mail.' . wpsg_current_host() . '/');
+        wp_redirect(wpsg_mail_url());
         exit;
     }
     // Lapsed and unknown users see the page content
@@ -192,7 +205,7 @@ function wpsg_mail_login_shortcode() {
     // Active/lifetime should never reach here (redirected), but fail-safe:
     ?>
     <div class="wpsg-mail-login">
-        <a href="<?php echo esc_url('https://mail.' . wpsg_current_host() . '/'); ?>" class="wpsg-btn wpsg-btn-primary">Go to Webmail</a>
+        <a href="<?php echo esc_url(wpsg_mail_url()); ?>" class="wpsg-btn wpsg-btn-primary">Go to Webmail</a>
     </div>
     <?php
     return ob_get_clean();
@@ -402,5 +415,8 @@ register_activation_hook(__FILE__, function () {
     flush_rewrite_rules();
     if (!get_role('subscriber')) {
         add_role('subscriber', 'Subscriber', ['read' => true]);
+    }
+    if (!get_option('wpsg_notifications')) {
+        add_option('wpsg_notifications', WPSG_Settings::defaults());
     }
 });
