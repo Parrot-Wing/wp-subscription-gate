@@ -29,6 +29,7 @@ require_once WPSG_PATH . 'includes/class-webhook.php';
 require_once WPSG_PATH . 'includes/class-checkout.php';
 require_once WPSG_PATH . 'includes/class-shortcode.php';
 require_once WPSG_PATH . 'includes/class-settings.php';
+require_once WPSG_PATH . 'includes/class-stripe-settings.php';
 require_once WPSG_PATH . 'includes/class-notifications.php';
 
 /**
@@ -39,6 +40,23 @@ function wpsg_mail_url() {
     return apply_filters('wpsg_mail_url', 'https://mail.' . wpsg_current_host() . '/');
 }
 
+// ---- Stripe credential helpers (wp-config constants override DB options) ----
+function wpsg_stripe_secret_key() {
+    return (defined('WPSG_STRIPE_SECRET_KEY') && WPSG_STRIPE_SECRET_KEY !== '') ? WPSG_STRIPE_SECRET_KEY : get_option('wpsg_stripe_secret_key', '');
+}
+
+function wpsg_stripe_publishable_key() {
+    return (defined('WPSG_STRIPE_PUBLISHABLE_KEY') && WPSG_STRIPE_PUBLISHABLE_KEY !== '') ? WPSG_STRIPE_PUBLISHABLE_KEY : get_option('wpsg_stripe_publishable_key', '');
+}
+
+function wpsg_stripe_price_id() {
+    return (defined('WPSG_STRIPE_PRICE_ID') && WPSG_STRIPE_PRICE_ID !== '') ? WPSG_STRIPE_PRICE_ID : get_option('wpsg_stripe_price_id', '');
+}
+
+function wpsg_stripe_webhook_secret() {
+    return (defined('WPSG_STRIPE_WEBHOOK_SECRET') && WPSG_STRIPE_WEBHOOK_SECRET !== '') ? WPSG_STRIPE_WEBHOOK_SECRET : get_option('wpsg_stripe_webhook_secret', '');
+}
+
 // ---- Register REST route (webhook) ----
 add_action('rest_api_init', function () {
     WPSG_Webhook::register_route();
@@ -46,6 +64,9 @@ add_action('rest_api_init', function () {
 
 // ---- Register email notification settings ----
 WPSG_Settings::register();
+
+// ---- Register Stripe settings ----
+WPSG_Stripe_Settings::register();
 
 // ---- Register shortcodes ----
 add_shortcode('wpsg_register',    ['WPSG_Shortcode', 'render']);
@@ -349,9 +370,7 @@ function wpsg_portal_session_ajax() {
         wp_send_json_error(['message' => 'No Stripe account linked. Please contact support.']);
     }
 
-    \Stripe\Stripe::setApiKey(
-        defined('WPSG_STRIPE_SECRET_KEY') ? WPSG_STRIPE_SECRET_KEY : get_option('wpsg_stripe_secret_key', '')
-    );
+    \Stripe\Stripe::setApiKey(wpsg_stripe_secret_key());
 
     try {
         $session = \Stripe\BillingPortal\Session::create([
@@ -384,11 +403,9 @@ function wpsg_renew_checkout_ajax() {
         wp_send_json_error(['message' => 'Your subscription is still active.']);
     }
 
-    \Stripe\Stripe::setApiKey(
-        defined('WPSG_STRIPE_SECRET_KEY') ? WPSG_STRIPE_SECRET_KEY : get_option('wpsg_stripe_secret_key', '')
-    );
+    \Stripe\Stripe::setApiKey(wpsg_stripe_secret_key());
 
-    $price_id = defined('WPSG_STRIPE_PRICE_ID') ? WPSG_STRIPE_PRICE_ID : get_option('wpsg_stripe_price_id', '');
+    $price_id = wpsg_stripe_price_id();
 
     try {
         $session = \Stripe\Checkout\Session::create([

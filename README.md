@@ -20,16 +20,16 @@ Stripe Checkout annual subscription for mailbox provisioning. No paid plugin dep
 ## Installation
 
 1. Clone this repo into `wp-content/plugins/wp-subscription-gate/`. The Stripe PHP SDK is bundled — no Composer needed.
-2. Add the following constants to `wp-config.php` (before the "stop editing" line):
+2. Activate the plugin in WordPress Admin → Plugins.
+3. Go to **Settings → Subscription Gate Stripe** and paste your Stripe credentials (Secret key, Publishable key, Price ID, Webhook signing secret). Use test keys (`sk_test_`, `pk_test_`) and a test Price ID first.
+
+   As an alternative, you can define the constants in `wp-config.php` before the "stop editing" line — they take priority over the settings page:
 
        define('WPSG_STRIPE_SECRET_KEY',      'sk_...');
        define('WPSG_STRIPE_PUBLISHABLE_KEY', 'pk_...');
        define('WPSG_STRIPE_PRICE_ID',        'price_...');
        define('WPSG_STRIPE_WEBHOOK_SECRET',  'whsec_...');
 
-   All four values come from the Stripe Dashboard. Use test keys (`sk_test_`, `pk_test_`) and a test Price ID first.
-
-3. Activate the plugin in WordPress Admin → Plugins.
 4. Create a page with slug `welcome` — users land here after payment.
 5. On your registration page, use the shortcode `[wpsg_register]`.
 6. In Stripe Dashboard → Developers → Webhooks, create an endpoint at `https://your-domain/wp-json/wpsg/v1/stripe-webhook` listening for: `checkout.session.completed`, `invoice.paid`, `customer.subscription.deleted`, `invoice.payment_failed`.
@@ -43,4 +43,4 @@ Renders: email prefix input + domain dropdown + password + confirm password. The
 
 ## Credentials
 
-All Stripe keys are read from `wp-config.php` constants. Nothing is stored in the database or committed to this repository.
+Stripe credentials are configured in **WordPress Admin → Settings → Subscription Gate Stripe** and stored in the database as `wpsg_stripe_*` options. If the `WPSG_STRIPE_*` constants are defined in `wp-config.php`, they take priority. No secret values are committed to this repository.

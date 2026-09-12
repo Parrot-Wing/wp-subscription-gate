@@ -73,10 +73,10 @@ class WPSG_Checkout {
     }
 
     private static function get_secret_key() {
-        return defined('WPSG_STRIPE_SECRET_KEY') ? WPSG_STRIPE_SECRET_KEY : get_option('wpsg_stripe_secret_key', '');
+        return wpsg_stripe_secret_key();
     }
 
     private static function get_price_id() {
-        return defined('WPSG_STRIPE_PRICE_ID') ? WPSG_STRIPE_PRICE_ID : get_option('wpsg_stripe_price_id', '');
+        return wpsg_stripe_price_id();
     }
 }

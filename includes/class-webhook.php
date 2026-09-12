@@ -162,10 +162,10 @@ class WPSG_Webhook {
     }
 
     private static function get_secret_key() {
-        return defined('WPSG_STRIPE_SECRET_KEY') ? WPSG_STRIPE_SECRET_KEY : get_option('wpsg_stripe_secret_key', '');
+        return wpsg_stripe_secret_key();
     }
 
     private static function get_webhook_secret() {
-        return defined('WPSG_STRIPE_WEBHOOK_SECRET') ? WPSG_STRIPE_WEBHOOK_SECRET : get_option('wpsg_stripe_webhook_secret', '');
+        return wpsg_stripe_webhook_secret();
     }
 }

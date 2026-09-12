@@ -126,6 +126,6 @@ class WPSG_Shortcode {
     }
 
     private static function get_publishable_key() {
-        return defined('WPSG_STRIPE_PUBLISHABLE_KEY') ? WPSG_STRIPE_PUBLISHABLE_KEY : get_option('wpsg_stripe_publishable_key', '');
+        return wpsg_stripe_publishable_key();
     }
 }
