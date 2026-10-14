@@ -21,7 +21,7 @@ class WPSG_Refund {
      * Feature flag.
      */
     public static function is_enabled() {
-        return (bool) get_option(self::OPTION, 0);
+        return (bool) get_option(self::OPTION, 1);
     }
 
     /**

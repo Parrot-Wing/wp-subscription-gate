@@ -36,6 +36,7 @@ class WPSG_Stripe_Settings {
             register_setting(self::GROUP, $id, [
                 'type'              => 'string',
                 'sanitize_callback' => [__CLASS__, 'sanitize'],
+                'default'           => $field['type'] === 'checkbox' ? '1' : '',
             ]);
         }
     }
@@ -131,7 +132,7 @@ class WPSG_Stripe_Settings {
             'wpsg_refund_enabled' => [
                 'label'       => 'Enable 30-day refund flow',
                 'type'        => 'checkbox',
-                'description' => 'Shows a "Request Refund" button to eligible active subscribers on their profile page.',
+                'description' => 'Enabled by default. Shows a "Request Refund" button to eligible active subscribers on their profile page.',
             ],
         ];
     }
@@ -157,7 +158,7 @@ class WPSG_Stripe_Settings {
                     <?php foreach (self::fields() as $id => $field) : ?>
                         <?php
                         $overridden  = self::is_overridden($id);
-                        $value       = $overridden ? '' : (string) get_option($id, '');
+                        $value       = $overridden ? '' : (string) get_option($id, $field['type'] === 'checkbox' ? '1' : '');
                         $placeholder = $overridden ? 'Set in wp-config.php' : '';
                         $disabled    = $overridden ? ' disabled' : '';
                         ?>
