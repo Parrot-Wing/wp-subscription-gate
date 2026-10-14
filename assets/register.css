@@ -120,3 +120,20 @@
     opacity: 0.6;
     cursor: not-allowed;
 }
+
+.wpsg-btn-secondary {
+    background: #f8f8f8;
+    color: #cc0000;
+    border: 1px solid #cc0000;
+}
+
+.wpsg-btn-secondary:hover {
+    background: #cc0000;
+    color: #ffffff;
+}
+
+.wpsg-refund-policy {
+    font-size: 0.85em;
+    color: #666;
+    margin-top: -0.5em;
+}

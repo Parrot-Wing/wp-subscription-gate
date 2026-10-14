@@ -91,6 +91,50 @@ class WPSG_Notifications {
     }
 
     /**
+     * Refund confirmation → user.
+     */
+    public static function send_refund_user($user_id, $refund_id = '') {
+        $s = WPSG_Settings::get();
+        if (empty($s['refund_user_enabled'])) {
+            return false;
+        }
+        $user = get_user_by('id', $user_id);
+        if (!$user) {
+            return false;
+        }
+        $data = self::build_user_data($user);
+        $data['refund_id'] = $refund_id;
+        return wp_mail(
+            $user->user_email,
+            self::render($s['refund_user_subject'], $data),
+            self::render($s['refund_user_body'], $data)
+        );
+    }
+
+    /**
+     * Refund notification → admins.
+     */
+    public static function send_refund_admin($user_id, $refund_id = '', $subscription_id = '', $cancel_failed = false) {
+        $s = WPSG_Settings::get();
+        if (empty($s['refund_admin_enabled'])) {
+            return false;
+        }
+        $user = get_user_by('id', $user_id);
+        if (!$user) {
+            return false;
+        }
+        $data = self::build_user_data($user);
+        $data['refund_id'] = $refund_id;
+        $data['subscription_id'] = $subscription_id;
+        $data['cancel_failed'] = $cancel_failed ? 'Yes — manual action required' : 'No';
+        return wp_mail(
+            self::parse_recipients($s['refund_admin_recipients']),
+            self::render($s['refund_admin_subject'], $data),
+            self::render($s['refund_admin_body'], $data)
+        );
+    }
+
+    /**
      * Assemble placeholder data for a user.
      */
     private static function build_user_data($user) {

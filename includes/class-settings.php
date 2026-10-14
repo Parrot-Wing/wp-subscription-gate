@@ -62,6 +62,17 @@ class WPSG_Settings {
             'renewal_admin_recipients' => $admin,
             'renewal_admin_subject'    => 'Subscription renewed: %user_email%',
             'renewal_admin_body'       => "A user has renewed their subscription on %domain%.\n\nUsername: %user_login%\nEmail: %user_email%\nActive until: %expiry_date%",
+
+            // Refund (user)
+            'refund_user_enabled'     => 1,
+            'refund_user_subject'     => 'Your refund has been processed',
+            'refund_user_body'        => "Hi %user_login%,\n\nYour refund has been processed. Your mailbox access has been ended, but your mail data is preserved.\n\nRefund ID: %refund_id%\n\nIf you change your mind, you can renew your subscription at any time.\n\nThank you,\nTeam %blogname%",
+
+            // Refund (admin)
+            'refund_admin_enabled'    => 1,
+            'refund_admin_recipients' => $admin,
+            'refund_admin_subject'    => 'Refund processed: %user_email%',
+            'refund_admin_body'       => "A refund has been processed for a user on %domain%.\n\nUsername: %user_login%\nEmail: %user_email%\nRefund ID: %refund_id%\nStripe subscription: %subscription_id%\nCancel failed: %cancel_failed%",
         ];
     }
 
@@ -133,6 +144,25 @@ class WPSG_Settings {
                     ['id' => 'renewal_admin_recipients', 'type' => 'text',     'label' => 'Recipients (comma-separated)'],
                     ['id' => 'renewal_admin_subject',    'type' => 'text',     'label' => 'Subject'],
                     ['id' => 'renewal_admin_body',       'type' => 'textarea', 'label' => 'Body'],
+                ],
+            ],
+            'refund_user' => [
+                'label'        => 'Refund confirmation (sent to user)',
+                'placeholders' => array_merge($common, ['%refund_id%']),
+                'fields'       => [
+                    ['id' => 'refund_user_enabled', 'type' => 'checkbox', 'label' => 'Refund confirmation email'],
+                    ['id' => 'refund_user_subject', 'type' => 'text',     'label' => 'Subject'],
+                    ['id' => 'refund_user_body',    'type' => 'textarea', 'label' => 'Body'],
+                ],
+            ],
+            'refund_admin' => [
+                'label'        => 'Refund notification (sent to admins)',
+                'placeholders' => array_merge($common, ['%refund_id%', '%subscription_id%', '%cancel_failed%']),
+                'fields'       => [
+                    ['id' => 'refund_admin_enabled',    'type' => 'checkbox', 'label' => 'Refund admin notification'],
+                    ['id' => 'refund_admin_recipients', 'type' => 'text',     'label' => 'Recipients (comma-separated)'],
+                    ['id' => 'refund_admin_subject',    'type' => 'text',     'label' => 'Subject'],
+                    ['id' => 'refund_admin_body',       'type' => 'textarea', 'label' => 'Body'],
                 ],
             ],
         ];

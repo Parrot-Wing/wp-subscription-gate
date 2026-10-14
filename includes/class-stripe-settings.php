@@ -36,6 +36,7 @@ class WPSG_Stripe_Settings {
             register_setting(self::GROUP, $id, [
                 'type'              => 'string',
                 'sanitize_callback' => [__CLASS__, 'sanitize'],
+                'default'           => $field['type'] === 'checkbox' ? '1' : '',
             ]);
         }
     }
@@ -53,6 +54,10 @@ class WPSG_Stripe_Settings {
         }
 
         $value = sanitize_text_field(wp_unslash((string) $value));
+
+        if ($option === 'wpsg_refund_enabled') {
+            return $value === '1' ? '1' : '0';
+        }
 
         if ($option && self::is_secret_field($option) && $value === '') {
             return (string) get_option($option, '');
@@ -124,6 +129,11 @@ class WPSG_Stripe_Settings {
                 'type'        => 'password',
                 'description' => 'Starts with whsec_. Leave blank to keep the current value.',
             ],
+            'wpsg_refund_enabled' => [
+                'label'       => 'Enable 30-day refund flow',
+                'type'        => 'checkbox',
+                'description' => 'Enabled by default. Shows a "Request Refund" button to eligible active subscribers on their profile page.',
+            ],
         ];
     }
 
@@ -148,27 +158,41 @@ class WPSG_Stripe_Settings {
                     <?php foreach (self::fields() as $id => $field) : ?>
                         <?php
                         $overridden  = self::is_overridden($id);
-                        $value       = $overridden ? '' : ($field['type'] === 'password' ? '' : (string) get_option($id, ''));
+                        $value       = $overridden ? '' : (string) get_option($id, $field['type'] === 'checkbox' ? '1' : '');
                         $placeholder = $overridden ? 'Set in wp-config.php' : '';
                         $disabled    = $overridden ? ' disabled' : '';
                         ?>
                         <tr>
                             <th scope="row">
-                                <label for="<?php echo esc_attr($id); ?>"><?php echo esc_html($field['label']); ?></label>
+                                <?php if ($field['type'] !== 'checkbox') : ?>
+                                    <label for="<?php echo esc_attr($id); ?>"><?php echo esc_html($field['label']); ?></label>
+                                <?php endif; ?>
                             </th>
                             <td>
-                                <input type="<?php echo esc_attr($field['type']); ?>"
-                                       id="<?php echo esc_attr($id); ?>"
-                                       name="<?php echo esc_attr($id); ?>"
-                                       value="<?php echo esc_attr($value); ?>"
-                                       placeholder="<?php echo esc_attr($placeholder); ?>"
-                                       class="regular-text"
-                                       autocomplete="new-password"<?php echo $disabled; ?> />
-                                <?php if ($overridden) : ?>
-                                    <p class="description"><strong>Active source: wp-config.php.</strong> This field is disabled because the matching constant takes priority.</p>
-                                <?php else : ?>
+                                <?php if ($field['type'] === 'checkbox') : ?>
+                                    <label>
+                                        <input type="checkbox"
+                                               id="<?php echo esc_attr($id); ?>"
+                                               name="<?php echo esc_attr($id); ?>"
+                                               value="1" <?php checked(1, $value); ?> />
+                                        <?php echo esc_html($field['label']); ?>
+                                    </label>
                                     <p class="description"><?php echo esc_html($field['description']); ?></p>
                                     <p class="description">Active source: settings page.</p>
+                                <?php else : ?>
+                                    <input type="<?php echo esc_attr($field['type']); ?>"
+                                           id="<?php echo esc_attr($id); ?>"
+                                           name="<?php echo esc_attr($id); ?>"
+                                           value="<?php echo esc_attr($value); ?>"
+                                           placeholder="<?php echo esc_attr($placeholder); ?>"
+                                           class="regular-text"
+                                           autocomplete="new-password"<?php echo $disabled; ?> />
+                                    <?php if ($overridden) : ?>
+                                        <p class="description"><strong>Active source: wp-config.php.</strong> This field is disabled because the matching constant takes priority.</p>
+                                    <?php else : ?>
+                                        <p class="description"><?php echo esc_html($field['description']); ?></p>
+                                        <p class="description">Active source: settings page.</p>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </td>
                         </tr>
