@@ -31,6 +31,7 @@ require_once WPSG_PATH . 'includes/class-shortcode.php';
 require_once WPSG_PATH . 'includes/class-settings.php';
 require_once WPSG_PATH . 'includes/class-stripe-settings.php';
 require_once WPSG_PATH . 'includes/class-notifications.php';
+require_once WPSG_PATH . 'includes/class-refund.php';
 
 /**
  * Webmail URL (derived from the site domain; overridable via the
@@ -78,6 +79,7 @@ add_action('wp_ajax_wpsg_create_checkout',        ['WPSG_Shortcode', 'ajax_creat
 add_action('wp_ajax_nopriv_wpsg_create_checkout',  ['WPSG_Shortcode', 'ajax_create_checkout']);
 add_action('wp_ajax_wpsg_renew_checkout',          'wpsg_renew_checkout_ajax');
 add_action('wp_ajax_wpsg_portal_session',          'wpsg_portal_session_ajax');
+add_action('wp_ajax_wpsg_request_refund',          'wpsg_request_refund_ajax');
 
 // ---- Conditional navigation menu ----
 // Logged out: show "Login" and "Registration"
@@ -307,6 +309,46 @@ function wpsg_account_shortcode() {
             <?php else: ?>
                 <p><em>Subscription management is not available for this account. Please contact support for changes.</em></p>
             <?php endif; ?>
+            <?php if (WPSG_Refund::is_eligible($user->ID)): ?>
+                <p>
+                    <button id="wpsg-refund-btn" class="wpsg-btn wpsg-btn-secondary">Request Refund</button>
+                </p>
+                <p class="wpsg-refund-policy">Not satisfied? New subscribers can request a full refund within 30 days of signup.</p>
+                <p id="wpsg-refund-error" class="wpsg-error-msg" style="display:none;"></p>
+                <script>
+                document.getElementById('wpsg-refund-btn').addEventListener('click', function() {
+                    if (!confirm('Are you sure you want to request a full refund? Your mailbox access will end immediately.')) {
+                        return;
+                    }
+                    var btn = this;
+                    btn.disabled = true;
+                    btn.textContent = 'Processing…';
+                    fetch('<?php echo esc_js(admin_url('admin-ajax.php')); ?>', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: 'action=wpsg_request_refund&_ajax_nonce=<?php echo esc_js(wp_create_nonce('wpsg_refund_nonce')); ?>'
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.success) {
+                            btn.textContent = 'Refund processed. Reloading…';
+                            setTimeout(function() { window.location.reload(); }, 1500);
+                        } else {
+                            document.getElementById('wpsg-refund-error').textContent = data.data.message || 'Something went wrong. Please try again.';
+                            document.getElementById('wpsg-refund-error').style.display = 'block';
+                            btn.disabled = false;
+                            btn.textContent = 'Request Refund';
+                        }
+                    })
+                    .catch(function() {
+                        document.getElementById('wpsg-refund-error').textContent = 'Network error. Please try again.';
+                        document.getElementById('wpsg-refund-error').style.display = 'block';
+                        btn.disabled = false;
+                        btn.textContent = 'Request Refund';
+                    });
+                });
+                </script>
+            <?php endif; ?>
         <?php elseif ($status === 'lapsed'): ?>
             <p>Status: <strong>Lapsed</strong></p>
             <p>Your subscription has ended. Your mail data is preserved.</p>
@@ -425,6 +467,26 @@ function wpsg_renew_checkout_ajax() {
         error_log("WPSG Stripe: Renew checkout failed for user {$user->ID}: " . $e->getMessage());
         wp_send_json_error(['message' => 'Could not create checkout session. Please try again.']);
     }
+}
+
+/**
+ * AJAX handler: processes a self-serve 30-day refund request.
+ */
+function wpsg_request_refund_ajax() {
+    check_ajax_referer('wpsg_refund_nonce');
+
+    if (!is_user_logged_in()) {
+        wp_send_json_error(['message' => 'You must be logged in.']);
+    }
+
+    $user   = wp_get_current_user();
+    $result = WPSG_Refund::process($user->ID);
+
+    if (is_wp_error($result)) {
+        wp_send_json_error(['message' => $result->get_error_message()]);
+    }
+
+    wp_send_json_success(['message' => 'Your refund has been processed.']);
 }
 
 // ---- Activation hook ----

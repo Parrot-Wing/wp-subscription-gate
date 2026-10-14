@@ -46,6 +46,9 @@ class WPSG_Webhook {
             case 'invoice.payment_failed':
                 self::handle_payment_failed($event->data->object);
                 break;
+            case 'refund.created':
+                self::handle_refund_created($event->data->object);
+                break;
         }
 
         return new WP_REST_Response('OK', 200);
@@ -114,6 +117,7 @@ class WPSG_Webhook {
 
         update_user_meta($result, 'wpsg_stripe_customer_id', $session->customer->id);
         update_user_meta($result, 'wpsg_stripe_subscription_id', $session->subscription->id);
+        update_user_meta($result, 'wpsg_initial_purchase_at', time());
         delete_transient($transient_key);
 
         WPSG_Notifications::send_welcome($result);
@@ -124,6 +128,14 @@ class WPSG_Webhook {
 
     private static function handle_invoice_paid($invoice) {
         \Stripe\Stripe::setApiKey(self::get_secret_key());
+
+        // The initial invoice for a new subscription is handled by
+        // checkout.session.completed. Extending here would double the term.
+        if (isset($invoice->billing_reason) && $invoice->billing_reason === 'subscription_create') {
+            error_log("WPSG Stripe: Skipping invoice.paid for initial invoice {$invoice->id} (billing_reason=subscription_create)");
+            return;
+        }
+
         $user = self::find_user_by_stripe_customer($invoice->customer);
         if ($user) {
             WPSG_Provisioner::extend_subscription($user->ID, 12);
@@ -150,6 +162,30 @@ class WPSG_Webhook {
         if ($user) {
             WPSG_Provisioner::lapse_access($user->ID);
         }
+    }
+
+    private static function handle_refund_created($refund) {
+        $metadata = $refund->metadata ?? [];
+
+        if (($metadata['wpsg_refund_flow'] ?? '') !== WPSG_Refund::FLOW_VALUE) {
+            return;
+        }
+
+        $user_id = isset($metadata['wpsg_user_id']) ? (int) $metadata['wpsg_user_id'] : 0;
+        if (!$user_id) {
+            return;
+        }
+
+        $user = get_user_by('id', $user_id);
+        if (!$user) {
+            error_log("WPSG Stripe: refund.created for unknown user_id={$user_id}");
+            return;
+        }
+
+        WPSG_Refund::mark_refunded($user_id, $refund->id);
+        WPSG_Provisioner::lapse_access($user_id);
+
+        error_log("WPSG Stripe: ✅ Refund {$refund->id} processed for {$user->user_login} (user_id={$user_id})");
     }
 
     private static function find_user_by_stripe_customer($customer_id) {
