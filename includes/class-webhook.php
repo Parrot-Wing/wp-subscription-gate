@@ -108,6 +108,16 @@ class WPSG_Webhook {
         $expiry_date = date('Y-m-d', strtotime('+1 year'));
         $result = WPSG_Provisioner::provision($full_email, $pending['password'], "active_until:{$expiry_date}");
 
+        // Self-heal the case where a previous webhook attempt created the WP
+        // user but was interrupted before storing the Stripe/access meta.
+        if (is_wp_error($result) && $result->get_error_code() === 'user_exists') {
+            $existing = get_user_by('login', $full_email);
+            if ($existing) {
+                WPSG_Provisioner::set_access_status($existing->ID, "active_until:{$expiry_date}");
+                $result = $existing->ID;
+            }
+        }
+
         if (is_wp_error($result)) {
             error_log("WPSG Stripe: Provision failed for {$full_email}: " . $result->get_error_message());
             return;
