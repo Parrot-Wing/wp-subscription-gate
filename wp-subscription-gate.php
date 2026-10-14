@@ -41,6 +41,43 @@ function wpsg_mail_url() {
     return apply_filters('wpsg_mail_url', 'https://mail.' . wpsg_current_host() . '/');
 }
 
+/**
+ * Login page URL (portable). Uses the legacy /login-2/ page when it exists
+ * (e.g. Pie Register setups), otherwise the standard WordPress login URL.
+ */
+function wpsg_login_url() {
+    return apply_filters(
+        'wpsg_login_url',
+        get_page_by_path('login-2') ? home_url('/login-2/') : wp_login_url()
+    );
+}
+
+/**
+ * Account page URL (portable). Prefers /profile/ when that page exists
+ * (legacy setup), otherwise the /account/ page, otherwise home.
+ */
+function wpsg_account_url() {
+    return apply_filters(
+        'wpsg_account_url',
+        get_page_by_path('profile')
+            ? home_url('/profile/')
+            : (get_page_by_path('account') ? home_url('/account/') : home_url('/'))
+    );
+}
+
+/**
+ * Mailbox login page URL (portable). Prefers /mail/ when that page exists,
+ * otherwise /email-login/, otherwise home.
+ */
+function wpsg_mail_login_page_url() {
+    return apply_filters(
+        'wpsg_mail_login_page_url',
+        get_page_by_path('mail')
+            ? home_url('/mail/')
+            : (get_page_by_path('email-login') ? home_url('/email-login/') : home_url('/'))
+    );
+}
+
 // ---- Stripe credential helpers (wp-config constants override DB options) ----
 function wpsg_stripe_secret_key() {
     return (defined('WPSG_STRIPE_SECRET_KEY') && WPSG_STRIPE_SECRET_KEY !== '') ? WPSG_STRIPE_SECRET_KEY : get_option('wpsg_stripe_secret_key', '');
@@ -109,7 +146,11 @@ add_filter('wp_nav_menu_objects', function ($items) {
         }
         if ($item->title === 'Account') {
             $item->title = 'Account Management';
-            $item->url   = home_url('/profile/');
+            // Only rewrite to /profile/ when that legacy page exists; otherwise
+            // keep the menu item's own URL (e.g. an /account/ page).
+            if (get_page_by_path('profile')) {
+                $item->url = home_url('/profile/');
+            }
         }
     }
     return $items;
@@ -150,7 +191,8 @@ add_filter('authenticate', function ($user, $username, $password) {
 
 // ---- Auto-redirect active users from /mail/ straight to Roundcube ----
 add_action('template_redirect', function () {
-    if (!is_page('mail')) return;
+    $mail_login_slugs = apply_filters('wpsg_mail_login_slugs', ['mail', 'email-login']);
+    if (!is_page($mail_login_slugs)) return;
     if (!is_user_logged_in()) return;
 
     $user   = wp_get_current_user();
@@ -175,7 +217,7 @@ function wpsg_mail_login_shortcode() {
         ?>
         <div class="wpsg-mail-login">
             <p>Please log in to access your mailbox.</p>
-            <a href="<?php echo esc_url(home_url('/login-2/')); ?>" class="wpsg-btn">Log In</a>
+            <a href="<?php echo esc_url(wpsg_login_url()); ?>" class="wpsg-btn">Log In</a>
         </div>
         <?php
         return ob_get_clean();
@@ -244,7 +286,7 @@ function wpsg_account_shortcode() {
         ?>
         <div class="wpsg-account">
             <p>Please log in to view your account.</p>
-            <a href="<?php echo esc_url(home_url('/login-2/')); ?>" class="wpsg-btn">Log In</a>
+            <a href="<?php echo esc_url(wpsg_login_url()); ?>" class="wpsg-btn">Log In</a>
         </div>
         <?php
         return ob_get_clean();
@@ -417,7 +459,7 @@ function wpsg_portal_session_ajax() {
     try {
         $session = \Stripe\BillingPortal\Session::create([
             'customer'   => $customer_id,
-            'return_url' => home_url('/profile/'),
+            'return_url' => wpsg_account_url(),
         ]);
 
         wp_send_json_success(['url' => $session->url]);
@@ -453,8 +495,8 @@ function wpsg_renew_checkout_ajax() {
         $session = \Stripe\Checkout\Session::create([
             'mode'              => 'subscription',
             'line_items'        => [['price' => $price_id, 'quantity' => 1]],
-            'success_url'       => home_url('/mail/'),
-            'cancel_url'        => home_url('/mail/'),
+            'success_url'       => wpsg_mail_login_page_url(),
+            'cancel_url'        => wpsg_mail_login_page_url(),
             'customer_email'    => $user->user_email,
             'metadata'          => [
                 'is_renewal'  => '1',
