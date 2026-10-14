@@ -2,14 +2,14 @@
 /**
  * Plugin Name: WP Subscription Gate
  * Description: Stripe Checkout annual subscription for hosted mailboxes. No paid plugin dependency.
- * Version: 1.1.0
+ * Version: 1.1.1
  * Requires PHP: 8.3
  * Author: WPSG
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('WPSG_VERSION', '1.1.0');
+define('WPSG_VERSION', '1.1.1');
 define('WPSG_PATH', plugin_dir_path(__FILE__));
 define('WPSG_URL', plugin_dir_url(__FILE__));
 
