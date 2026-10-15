@@ -2,19 +2,26 @@
 /**
  * Plugin Name: WP Subscription Gate
  * Description: Stripe Checkout annual subscription for hosted mailboxes. No paid plugin dependency.
- * Version: 1.1.1
+ * Version: 1.2.0
  * Requires PHP: 8.3
  * Author: WPSG
+ * Text Domain: wp-subscription-gate
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('WPSG_VERSION', '1.1.1');
+define('WPSG_VERSION', '1.2.0');
 define('WPSG_PATH', plugin_dir_path(__FILE__));
 define('WPSG_URL', plugin_dir_url(__FILE__));
+define('WPSG_TEXT_DOMAIN', 'wp-subscription-gate');
 
 // ---- Stripe SDK ----
 require_once WPSG_PATH . 'vendor/stripe/stripe-php/init.php';
+
+// ---- Translations ----
+add_action('init', function () {
+    load_plugin_textdomain(WPSG_TEXT_DOMAIN, false, dirname(plugin_basename(__FILE__)) . '/languages');
+});
 
 // ---- Helper: current hostname (with fallback) ----
 function wpsg_current_host() {
@@ -32,50 +39,111 @@ require_once WPSG_PATH . 'includes/class-settings.php';
 require_once WPSG_PATH . 'includes/class-stripe-settings.php';
 require_once WPSG_PATH . 'includes/class-notifications.php';
 require_once WPSG_PATH . 'includes/class-refund.php';
+require_once WPSG_PATH . 'includes/class-pages-settings.php';
 
 /**
- * Webmail URL (derived from the site domain; overridable via the
- * 'wpsg_mail_url' filter).
+ * Pages & behavior settings (single option array).
+ */
+function wpsg_pages_option() {
+    static $opts = null;
+    if ($opts === null) {
+        $defaults = [
+            'account_page_id'     => 0,
+            'mail_login_page_id'  => 0,
+            'login_url'           => '',
+            'webmail_url'         => '',
+            'menu_mode'           => 'off',
+            'email_login_enabled' => 1,
+            'login_email_domain'  => '',
+        ];
+        $opts = wp_parse_args((array) get_option('wpsg_pages', []), $defaults);
+    }
+    return $opts;
+}
+
+/**
+ * Account page ID (portable). Configured page wins; otherwise falls back to
+ * the legacy /profile/ or /account/ slugs for sites that upgraded.
+ */
+function wpsg_account_page_id() {
+    $opts = wpsg_pages_option();
+    if (!empty($opts['account_page_id'])) {
+        return (int) $opts['account_page_id'];
+    }
+    $page = get_page_by_path('profile') ?: get_page_by_path('account');
+    return $page ? (int) $page->ID : 0;
+}
+
+/**
+ * Mailbox login page ID (portable). Configured page wins; otherwise falls
+ * back to the legacy /mail/ or /email-login/ slugs.
+ */
+function wpsg_mail_login_page_id() {
+    $opts = wpsg_pages_option();
+    if (!empty($opts['mail_login_page_id'])) {
+        return (int) $opts['mail_login_page_id'];
+    }
+    $page = get_page_by_path('mail') ?: get_page_by_path('email-login');
+    return $page ? (int) $page->ID : 0;
+}
+
+/**
+ * Webmail URL (portable). Configured value wins; otherwise derives
+ * https://mail.<site-host>/.
  */
 function wpsg_mail_url() {
-    return apply_filters('wpsg_mail_url', 'https://mail.' . wpsg_current_host() . '/');
+    $opts = wpsg_pages_option();
+    $url  = trim((string) $opts['webmail_url']);
+    if ($url === '') {
+        $url = 'https://mail.' . wpsg_current_host() . '/';
+    }
+    return apply_filters('wpsg_mail_url', $url);
 }
 
 /**
- * Login page URL (portable). Uses the legacy /login-2/ page when it exists
- * (e.g. Pie Register setups), otherwise the standard WordPress login URL.
+ * Login page URL (portable). Configured value wins; otherwise uses the
+ * legacy /login-2/ page when present, else the standard wp-login.php.
  */
 function wpsg_login_url() {
-    return apply_filters(
-        'wpsg_login_url',
-        get_page_by_path('login-2') ? home_url('/login-2/') : wp_login_url()
-    );
+    $opts = wpsg_pages_option();
+    $url  = trim((string) $opts['login_url']);
+    if ($url === '') {
+        $url = get_page_by_path('login-2') ? home_url('/login-2/') : wp_login_url();
+    }
+    return apply_filters('wpsg_login_url', $url);
 }
 
 /**
- * Account page URL (portable). Prefers /profile/ when that page exists
- * (legacy setup), otherwise the /account/ page, otherwise home.
+ * Account page URL (portable).
  */
 function wpsg_account_url() {
-    return apply_filters(
-        'wpsg_account_url',
-        get_page_by_path('profile')
-            ? home_url('/profile/')
-            : (get_page_by_path('account') ? home_url('/account/') : home_url('/'))
-    );
+    $id  = wpsg_account_page_id();
+    $url = $id ? (get_permalink($id) ?: home_url('/')) : home_url('/');
+    return apply_filters('wpsg_account_url', $url);
 }
 
 /**
- * Mailbox login page URL (portable). Prefers /mail/ when that page exists,
- * otherwise /email-login/, otherwise home.
+ * Mailbox login page URL (portable).
  */
 function wpsg_mail_login_page_url() {
-    return apply_filters(
-        'wpsg_mail_login_page_url',
-        get_page_by_path('mail')
-            ? home_url('/mail/')
-            : (get_page_by_path('email-login') ? home_url('/email-login/') : home_url('/'))
-    );
+    $id  = wpsg_mail_login_page_id();
+    $url = $id ? (get_permalink($id) ?: home_url('/')) : home_url('/');
+    return apply_filters('wpsg_mail_login_page_url', $url);
+}
+
+/**
+ * Menu mode. The WPSG_DISABLE_MENU_FILTERS constant is a hard kill-switch
+ * that wins over the stored setting.
+ */
+function wpsg_menu_mode() {
+    if (defined('WPSG_DISABLE_MENU_FILTERS') && WPSG_DISABLE_MENU_FILTERS) {
+        return 'off';
+    }
+    $opts = wpsg_pages_option();
+    $mode = isset($opts['menu_mode']) && in_array($opts['menu_mode'], ['off', 'pages', 'titles'], true)
+        ? $opts['menu_mode']
+        : 'off';
+    return apply_filters('wpsg_menu_mode', $mode);
 }
 
 // ---- Stripe credential helpers (wp-config constants override DB options) ----
@@ -106,6 +174,12 @@ WPSG_Settings::register();
 // ---- Register Stripe settings ----
 WPSG_Stripe_Settings::register();
 
+// ---- Register pages & behavior settings ----
+WPSG_Pages_Settings::register();
+
+// ---- Register pages & behavior settings ----
+WPSG_Pages_Settings::register();
+
 // ---- Register shortcodes ----
 add_shortcode('wpsg_register',    ['WPSG_Shortcode', 'render']);
 add_shortcode('wpsg_mail_login',  'wpsg_mail_login_shortcode');
@@ -118,52 +192,112 @@ add_action('wp_ajax_wpsg_renew_checkout',          'wpsg_renew_checkout_ajax');
 add_action('wp_ajax_wpsg_portal_session',          'wpsg_portal_session_ajax');
 add_action('wp_ajax_wpsg_request_refund',          'wpsg_request_refund_ajax');
 
-// ---- Conditional navigation menu ----
-// Logged out: show "Login" and "Registration"
-// Logged in:  show "Email Inbox" and "Account Management"
-add_filter('wp_nav_menu_objects', function ($items) {
-    $logged_in = is_user_logged_in();
+// ---- Frontend assets: registered here, enqueued only when a shortcode is present ----
+add_action('wp_enqueue_scripts', 'wpsg_enqueue_frontend_assets');
+function wpsg_enqueue_frontend_assets() {
+    wp_register_style('wpsg-register', WPSG_URL . 'assets/register.css', [], WPSG_VERSION);
+    wp_register_script('wpsg-register', WPSG_URL . 'assets/register.js', ['jquery'], WPSG_VERSION, true);
+
+    $enqueue = false;
+    if (is_singular()) {
+        $post = get_post();
+        if ($post && !empty($post->post_content)) {
+            foreach (['wpsg_register', 'wpsg_mail_login', 'wpsg_account'] as $tag) {
+                if (has_shortcode($post->post_content, $tag)) {
+                    $enqueue = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    $enqueue = apply_filters('wpsg_enqueue_frontend_assets', $enqueue);
+
+    if ($enqueue) {
+        wp_enqueue_style('wpsg-register');
+    }
+    if ($enqueue && !is_user_logged_in()) {
+        wp_enqueue_script('wpsg-register');
+        wp_localize_script('wpsg-register', 'wpsg_ajax', [
+            'ajax_url'        => admin_url('admin-ajax.php'),
+            'nonce'           => wp_create_nonce('wpsg_register_nonce'),
+            'publishable_key' => wpsg_stripe_publishable_key(),
+        ]);
+    }
+}
+
+// ---- Navigation menu behavior (opt-in via Settings -> WPSG Pages & Behavior) ----
+// off    = plugin never touches menus (default for new sites)
+// pages  = manage Account / Email Login items by their configured page ID
+// titles = legacy initrix behavior: exact titles Login / Registration / Email Login / Account
+add_filter('wp_nav_menu_objects', 'wpsg_filter_nav_menu_objects', 10);
+add_filter('wp_nav_menu_items', 'wpsg_filter_nav_menu_items', 10, 2);
+
+function wpsg_filter_nav_menu_objects($items) {
+    $mode = wpsg_menu_mode();
+    if ($mode === 'off' || empty($items)) {
+        return $items;
+    }
+
+    $logged_in     = is_user_logged_in();
+    $account_id    = wpsg_account_page_id();
+    $mail_login_id = wpsg_mail_login_page_id();
+
     foreach ($items as $key => $item) {
-        if ($item->title === 'Login' || $item->title === 'Registration') {
+        $is_account      = false;
+        $is_mail_login   = false;
+        $is_login        = false;
+        $is_registration = false;
+
+        if ($mode === 'pages') {
+            $object_id     = isset($item->object_id) ? (int) $item->object_id : 0;
+            $is_account    = $account_id && $object_id === $account_id;
+            $is_mail_login = $mail_login_id && $object_id === $mail_login_id;
+        } elseif ($mode === 'titles') {
+            $is_account      = ($item->title === 'Account');
+            $is_mail_login   = ($item->title === 'Email Login');
+            $is_login        = ($item->title === 'Login');
+            $is_registration = ($item->title === 'Registration');
+        }
+
+        if ($is_login || $is_registration) {
             if ($logged_in) {
                 unset($items[$key]);
             }
+            continue;
         }
-        if ($item->title === 'Email Login' || $item->title === 'Account') {
+
+        if ($is_account || $is_mail_login) {
             if (!$logged_in) {
                 unset($items[$key]);
+                continue;
+            }
+            if ($is_account) {
+                $items[$key]->title = __('Account Management', WPSG_TEXT_DOMAIN);
+                $account_url = wpsg_account_url();
+                if ($account_url) {
+                    $items[$key]->url = $account_url;
+                }
+            }
+            if ($is_mail_login) {
+                $items[$key]->title = __('Email Inbox', WPSG_TEXT_DOMAIN);
             }
         }
     }
-    return $items;
-});
 
-// Rename menu items for logged-in users and fix Account URL
-add_filter('wp_nav_menu_objects', function ($items) {
-    foreach ($items as $item) {
-        if ($item->title === 'Email Login') {
-            $item->title = 'Email Inbox';
-        }
-        if ($item->title === 'Account') {
-            $item->title = 'Account Management';
-            // Only rewrite to /profile/ when that legacy page exists; otherwise
-            // keep the menu item's own URL (e.g. an /account/ page).
-            if (get_page_by_path('profile')) {
-                $item->url = home_url('/profile/');
-            }
-        }
+    return $items;
+}
+
+function wpsg_filter_nav_menu_items($items, $args) {
+    if (wpsg_menu_mode() === 'off') {
+        return $items;
     }
-    return $items;
-});
-
-// Append logout link to navigation menu for logged-in users
-add_filter('wp_nav_menu_items', function ($items) {
     if (is_user_logged_in()) {
         $logout_url = wp_logout_url(home_url());
-        $items .= '<li class="menu-item menu-item-logout"><a href="' . esc_url($logout_url) . '">Logout</a></li>';
+        $items .= '<li class="menu-item menu-item-logout"><a href="' . esc_url($logout_url) . '">' . esc_html__('Logout', WPSG_TEXT_DOMAIN) . '</a></li>';
     }
     return $items;
-});
+}
 
 // ---- Allow login with email prefix when bare username not found ----
 add_filter('authenticate', function ($user, $username, $password) {
@@ -175,7 +309,17 @@ add_filter('authenticate', function ($user, $username, $password) {
         return $user;
     }
 
-    $full_email = $username . '@' . wpsg_current_host();
+    $opts = wpsg_pages_option();
+    if (empty($opts['email_login_enabled'])) {
+        return $user;
+    }
+
+    $domain = trim((string) $opts['login_email_domain']);
+    if ($domain === '') {
+        $domain = wpsg_current_host();
+    }
+
+    $full_email = $username . '@' . $domain;
     $wp_user    = get_user_by('login', $full_email);
 
     if (!$wp_user) {
@@ -183,7 +327,7 @@ add_filter('authenticate', function ($user, $username, $password) {
     }
 
     if (!wp_check_password($password, $wp_user->user_pass, $wp_user->ID)) {
-        return new WP_Error('incorrect_password', __('<strong>Error:</strong> The password you entered is incorrect.'));
+        return new WP_Error('incorrect_password', __('<strong>Error:</strong> The password you entered is incorrect.', WPSG_TEXT_DOMAIN));
     }
 
     return $wp_user;
@@ -191,8 +335,13 @@ add_filter('authenticate', function ($user, $username, $password) {
 
 // ---- Auto-redirect active users from /mail/ straight to Roundcube ----
 add_action('template_redirect', function () {
-    $mail_login_slugs = apply_filters('wpsg_mail_login_slugs', ['mail', 'email-login']);
-    if (!is_page($mail_login_slugs)) return;
+    $mail_login_slugs = apply_filters('wpsg_mail_login_slugs', []);
+    if (!empty($mail_login_slugs)) {
+        if (!is_page($mail_login_slugs)) return;
+    } else {
+        $mail_login_id = wpsg_mail_login_page_id();
+        if (!$mail_login_id || !is_page($mail_login_id)) return;
+    }
     if (!is_user_logged_in()) return;
 
     $user   = wp_get_current_user();
@@ -212,12 +361,13 @@ add_action('template_redirect', function () {
  */
 function wpsg_mail_login_shortcode() {
     ob_start();
+    $uid = wp_unique_id('wpsg-mail-');
 
     if (!is_user_logged_in()) {
         ?>
         <div class="wpsg-mail-login">
-            <p>Please log in to access your mailbox.</p>
-            <a href="<?php echo esc_url(wpsg_login_url()); ?>" class="wpsg-btn">Log In</a>
+            <p><?php esc_html_e('Please log in to access your mailbox.', WPSG_TEXT_DOMAIN); ?></p>
+            <a href="<?php echo esc_url(wpsg_login_url()); ?>" class="wpsg-btn"><?php esc_html_e('Log In', WPSG_TEXT_DOMAIN); ?></a>
         </div>
         <?php
         return ob_get_clean();
@@ -230,12 +380,12 @@ function wpsg_mail_login_shortcode() {
     if ($status === 'lapsed') {
         ?>
         <div class="wpsg-mail-login wpsg-mail-login-lapsed">
-            <p>⚠️ Your mailbox access has been suspended because your subscription lapsed. Your mail is preserved and you will regain access as soon as you renew.</p>
-            <button id="wpsg-renew-btn-mail" class="wpsg-btn wpsg-btn-renew">Renew Subscription</button>
-            <p id="wpsg-renew-error-mail" class="wpsg-error-msg" style="display:none;"></p>
+            <p><?php esc_html_e('⚠️ Your mailbox access has been suspended because your subscription lapsed. Your mail is preserved and you will regain access as soon as you renew.', WPSG_TEXT_DOMAIN); ?></p>
+            <button id="<?php echo esc_attr($uid); ?>-renew-btn" class="wpsg-btn wpsg-btn-renew"><?php esc_html_e('Renew Subscription', WPSG_TEXT_DOMAIN); ?></button>
+            <p id="<?php echo esc_attr($uid); ?>-renew-error" class="wpsg-error-msg" style="display:none;"></p>
         </div>
         <script>
-        document.getElementById('wpsg-renew-btn-mail').addEventListener('click', function() {
+        document.getElementById('<?php echo esc_js($uid); ?>-renew-btn').addEventListener('click', function() {
             var btn = this;
             btn.disabled = true;
             btn.textContent = 'Connecting to Stripe…';
@@ -249,15 +399,15 @@ function wpsg_mail_login_shortcode() {
                 if (data.success && data.data.url) {
                     window.location.href = data.data.url;
                 } else {
-                    document.getElementById('wpsg-renew-error-mail').textContent = data.data.message || 'Something went wrong. Please try again.';
-                    document.getElementById('wpsg-renew-error-mail').style.display = 'block';
+                    document.getElementById('<?php echo esc_js($uid); ?>-renew-error').textContent = data.data.message || 'Something went wrong. Please try again.';
+                    document.getElementById('<?php echo esc_js($uid); ?>-renew-error').style.display = 'block';
                     btn.disabled = false;
                     btn.textContent = 'Renew Subscription';
                 }
             })
             .catch(function() {
-                document.getElementById('wpsg-renew-error-mail').textContent = 'Network error. Please try again.';
-                document.getElementById('wpsg-renew-error-mail').style.display = 'block';
+                document.getElementById('<?php echo esc_js($uid); ?>-renew-error').textContent = 'Network error. Please try again.';
+                document.getElementById('<?php echo esc_js($uid); ?>-renew-error').style.display = 'block';
                 btn.disabled = false;
                 btn.textContent = 'Renew Subscription';
             });
@@ -270,7 +420,7 @@ function wpsg_mail_login_shortcode() {
     // Active/lifetime should never reach here (redirected), but fail-safe:
     ?>
     <div class="wpsg-mail-login">
-        <a href="<?php echo esc_url(wpsg_mail_url()); ?>" class="wpsg-btn wpsg-btn-primary">Go to Webmail</a>
+        <a href="<?php echo esc_url(wpsg_mail_url()); ?>" class="wpsg-btn wpsg-btn-primary"><?php esc_html_e('Go to Webmail', WPSG_TEXT_DOMAIN); ?></a>
     </div>
     <?php
     return ob_get_clean();
@@ -285,8 +435,8 @@ function wpsg_account_shortcode() {
     if (!is_user_logged_in()) {
         ?>
         <div class="wpsg-account">
-            <p>Please log in to view your account.</p>
-            <a href="<?php echo esc_url(wpsg_login_url()); ?>" class="wpsg-btn">Log In</a>
+            <p><?php esc_html_e('Please log in to view your account.', WPSG_TEXT_DOMAIN); ?></p>
+            <a href="<?php echo esc_url(wpsg_login_url()); ?>" class="wpsg-btn"><?php esc_html_e('Log In', WPSG_TEXT_DOMAIN); ?></a>
         </div>
         <?php
         return ob_get_clean();
@@ -302,25 +452,25 @@ function wpsg_account_shortcode() {
         $customer_id = '';
     }
 
-    wp_enqueue_style('wpsg-register', WPSG_URL . 'assets/register.css', [], WPSG_VERSION);
+    $uid = wp_unique_id('wpsg-account-');
     ?>
 
     <div class="wpsg-account">
-        <h2>Subscription</h2>
+        <h2><?php esc_html_e('Subscription', WPSG_TEXT_DOMAIN); ?></h2>
 
         <?php if ($status === 'lifetime'): ?>
-            <p>Status: <strong>Lifetime</strong></p>
-            <p>Your mailbox has permanent access.</p>
+            <p><?php esc_html_e('Status:', WPSG_TEXT_DOMAIN); ?> <strong><?php esc_html_e('Lifetime', WPSG_TEXT_DOMAIN); ?></strong></p>
+            <p><?php esc_html_e('Your mailbox has permanent access.', WPSG_TEXT_DOMAIN); ?></p>
         <?php elseif ($status && strpos($status, 'active_until:') === 0): ?>
-            <p>Status: <strong>Active</strong></p>
-            <p>Your mailbox is active until <strong><?php echo esc_html($until); ?></strong>.</p>
+            <p><?php esc_html_e('Status:', WPSG_TEXT_DOMAIN); ?> <strong><?php esc_html_e('Active', WPSG_TEXT_DOMAIN); ?></strong></p>
+            <p><?php esc_html_e('Your mailbox is active until', WPSG_TEXT_DOMAIN); ?> <strong><?php echo esc_html($until); ?></strong>.</p>
             <?php if ($customer_id): ?>
                 <p>
-                    <button id="wpsg-manage-btn" class="wpsg-btn wpsg-btn-primary">Manage Subscription</button>
+                    <button id="<?php echo esc_attr($uid); ?>-manage-btn" class="wpsg-btn wpsg-btn-primary"><?php esc_html_e('Manage Subscription', WPSG_TEXT_DOMAIN); ?></button>
                 </p>
-                <p id="wpsg-portal-error" class="wpsg-error-msg" style="display:none;"></p>
+                <p id="<?php echo esc_attr($uid); ?>-portal-error" class="wpsg-error-msg" style="display:none;"></p>
                 <script>
-                document.getElementById('wpsg-manage-btn').addEventListener('click', function() {
+                document.getElementById('<?php echo esc_js($uid); ?>-manage-btn').addEventListener('click', function() {
                     var btn = this;
                     btn.disabled = true;
                     btn.textContent = 'Loading…';
@@ -334,31 +484,31 @@ function wpsg_account_shortcode() {
                         if (data.success && data.data.url) {
                             window.location.href = data.data.url;
                         } else {
-                            document.getElementById('wpsg-portal-error').textContent = data.data.message || 'Something went wrong.';
-                            document.getElementById('wpsg-portal-error').style.display = 'block';
+                            document.getElementById('<?php echo esc_js($uid); ?>-portal-error').textContent = data.data.message || 'Something went wrong.';
+                            document.getElementById('<?php echo esc_js($uid); ?>-portal-error').style.display = 'block';
                             btn.disabled = false;
                             btn.textContent = 'Manage Subscription';
                         }
                     })
                     .catch(function() {
-                        document.getElementById('wpsg-portal-error').textContent = 'Network error. Please try again.';
-                        document.getElementById('wpsg-portal-error').style.display = 'block';
+                        document.getElementById('<?php echo esc_js($uid); ?>-portal-error').textContent = 'Network error. Please try again.';
+                        document.getElementById('<?php echo esc_js($uid); ?>-portal-error').style.display = 'block';
                         btn.disabled = false;
                         btn.textContent = 'Manage Subscription';
                     });
                 });
                 </script>
             <?php else: ?>
-                <p><em>Subscription management is not available for this account. Please contact support for changes.</em></p>
+                <p><em><?php esc_html_e('Subscription management is not available for this account. Please contact support for changes.', WPSG_TEXT_DOMAIN); ?></em></p>
             <?php endif; ?>
             <?php if (WPSG_Refund::is_eligible($user->ID)): ?>
                 <p>
-                    <button id="wpsg-refund-btn" class="wpsg-btn wpsg-btn-secondary">Request Refund</button>
+                    <button id="<?php echo esc_attr($uid); ?>-refund-btn" class="wpsg-btn wpsg-btn-secondary"><?php esc_html_e('Request Refund', WPSG_TEXT_DOMAIN); ?></button>
                 </p>
-                <p class="wpsg-refund-policy">Not satisfied? New subscribers can request a full refund within 30 days of signup.</p>
-                <p id="wpsg-refund-error" class="wpsg-error-msg" style="display:none;"></p>
+                <p class="wpsg-refund-policy"><?php esc_html_e('Not satisfied? New subscribers can request a full refund within 30 days of signup.', WPSG_TEXT_DOMAIN); ?></p>
+                <p id="<?php echo esc_attr($uid); ?>-refund-error" class="wpsg-error-msg" style="display:none;"></p>
                 <script>
-                document.getElementById('wpsg-refund-btn').addEventListener('click', function() {
+                document.getElementById('<?php echo esc_js($uid); ?>-refund-btn').addEventListener('click', function() {
                     if (!confirm('Are you sure you want to request a full refund? Your mailbox access will end immediately.')) {
                         return;
                     }
@@ -376,15 +526,15 @@ function wpsg_account_shortcode() {
                             btn.textContent = 'Refund processed. Reloading…';
                             setTimeout(function() { window.location.reload(); }, 1500);
                         } else {
-                            document.getElementById('wpsg-refund-error').textContent = data.data.message || 'Something went wrong. Please try again.';
-                            document.getElementById('wpsg-refund-error').style.display = 'block';
+                            document.getElementById('<?php echo esc_js($uid); ?>-refund-error').textContent = data.data.message || 'Something went wrong. Please try again.';
+                            document.getElementById('<?php echo esc_js($uid); ?>-refund-error').style.display = 'block';
                             btn.disabled = false;
                             btn.textContent = 'Request Refund';
                         }
                     })
                     .catch(function() {
-                        document.getElementById('wpsg-refund-error').textContent = 'Network error. Please try again.';
-                        document.getElementById('wpsg-refund-error').style.display = 'block';
+                        document.getElementById('<?php echo esc_js($uid); ?>-refund-error').textContent = 'Network error. Please try again.';
+                        document.getElementById('<?php echo esc_js($uid); ?>-refund-error').style.display = 'block';
                         btn.disabled = false;
                         btn.textContent = 'Request Refund';
                     });
@@ -392,14 +542,14 @@ function wpsg_account_shortcode() {
                 </script>
             <?php endif; ?>
         <?php elseif ($status === 'lapsed'): ?>
-            <p>Status: <strong>Lapsed</strong></p>
-            <p>Your subscription has ended. Your mail data is preserved.</p>
+            <p><?php esc_html_e('Status:', WPSG_TEXT_DOMAIN); ?> <strong><?php esc_html_e('Lapsed', WPSG_TEXT_DOMAIN); ?></strong></p>
+            <p><?php esc_html_e('Your subscription has ended. Your mail data is preserved.', WPSG_TEXT_DOMAIN); ?></p>
             <p>
-                <button id="wpsg-renew-btn" class="wpsg-btn wpsg-btn-renew">Renew Subscription</button>
+                <button id="<?php echo esc_attr($uid); ?>-renew-btn" class="wpsg-btn wpsg-btn-renew"><?php esc_html_e('Renew Subscription', WPSG_TEXT_DOMAIN); ?></button>
             </p>
-            <p id="wpsg-renew-error" class="wpsg-error-msg" style="display:none;"></p>
+            <p id="<?php echo esc_attr($uid); ?>-renew-error" class="wpsg-error-msg" style="display:none;"></p>
             <script>
-            document.getElementById('wpsg-renew-btn').addEventListener('click', function() {
+            document.getElementById('<?php echo esc_js($uid); ?>-renew-btn').addEventListener('click', function() {
                 var btn = this;
                 btn.disabled = true;
                 btn.textContent = 'Connecting to Stripe…';
@@ -413,23 +563,23 @@ function wpsg_account_shortcode() {
                     if (data.success && data.data.url) {
                         window.location.href = data.data.url;
                     } else {
-                        document.getElementById('wpsg-renew-error').textContent = data.data.message || 'Something went wrong. Please try again.';
-                        document.getElementById('wpsg-renew-error').style.display = 'block';
+                        document.getElementById('<?php echo esc_js($uid); ?>-renew-error').textContent = data.data.message || 'Something went wrong. Please try again.';
+                        document.getElementById('<?php echo esc_js($uid); ?>-renew-error').style.display = 'block';
                         btn.disabled = false;
                         btn.textContent = 'Renew Subscription';
                     }
                 })
                 .catch(function() {
-                    document.getElementById('wpsg-renew-error').textContent = 'Network error. Please try again.';
-                    document.getElementById('wpsg-renew-error').style.display = 'block';
+                    document.getElementById('<?php echo esc_js($uid); ?>-renew-error').textContent = 'Network error. Please try again.';
+                    document.getElementById('<?php echo esc_js($uid); ?>-renew-error').style.display = 'block';
                     btn.disabled = false;
                     btn.textContent = 'Renew Subscription';
                 });
             });
             </script>
         <?php else: ?>
-            <p>Status: <strong>Unknown</strong></p>
-            <p>Please contact support.</p>
+            <p><?php esc_html_e('Status:', WPSG_TEXT_DOMAIN); ?> <strong><?php esc_html_e('Unknown', WPSG_TEXT_DOMAIN); ?></strong></p>
+            <p><?php esc_html_e('Please contact support.', WPSG_TEXT_DOMAIN); ?></p>
         <?php endif; ?>
     </div>
     <?php
@@ -443,7 +593,7 @@ function wpsg_portal_session_ajax() {
     check_ajax_referer('wpsg_portal_nonce');
 
     if (!is_user_logged_in()) {
-        wp_send_json_error(['message' => 'You must be logged in.']);
+        wp_send_json_error(['message' => __('You must be logged in.', WPSG_TEXT_DOMAIN)]);
     }
 
     $user        = wp_get_current_user();
@@ -451,7 +601,7 @@ function wpsg_portal_session_ajax() {
 
     // Handle serialized blobs
     if (!$customer_id || !is_string($customer_id)) {
-        wp_send_json_error(['message' => 'No Stripe account linked. Please contact support.']);
+        wp_send_json_error(['message' => __('No Stripe account linked. Please contact support.', WPSG_TEXT_DOMAIN)]);
     }
 
     \Stripe\Stripe::setApiKey(wpsg_stripe_secret_key());
@@ -465,7 +615,7 @@ function wpsg_portal_session_ajax() {
         wp_send_json_success(['url' => $session->url]);
     } catch (\Exception $e) {
         error_log("WPSG Stripe: Portal session failed for user {$user->ID}: " . $e->getMessage());
-        wp_send_json_error(['message' => 'Could not open subscription management. Please try again.']);
+        wp_send_json_error(['message' => __('Could not open subscription management. Please try again.', WPSG_TEXT_DOMAIN)]);
     }
 }
 
@@ -476,7 +626,7 @@ function wpsg_renew_checkout_ajax() {
     check_ajax_referer('wpsg_renew_nonce');
 
     if (!is_user_logged_in()) {
-        wp_send_json_error(['message' => 'You must be logged in.']);
+        wp_send_json_error(['message' => __('You must be logged in.', WPSG_TEXT_DOMAIN)]);
     }
 
     $user   = wp_get_current_user();
@@ -484,7 +634,7 @@ function wpsg_renew_checkout_ajax() {
 
     // Only allow lapsed users to renew
     if ($status !== 'lapsed') {
-        wp_send_json_error(['message' => 'Your subscription is still active.']);
+        wp_send_json_error(['message' => __('Your subscription is still active.', WPSG_TEXT_DOMAIN)]);
     }
 
     \Stripe\Stripe::setApiKey(wpsg_stripe_secret_key());
@@ -507,7 +657,7 @@ function wpsg_renew_checkout_ajax() {
         wp_send_json_success(['url' => $session->url]);
     } catch (\Exception $e) {
         error_log("WPSG Stripe: Renew checkout failed for user {$user->ID}: " . $e->getMessage());
-        wp_send_json_error(['message' => 'Could not create checkout session. Please try again.']);
+        wp_send_json_error(['message' => __('Could not create checkout session. Please try again.', WPSG_TEXT_DOMAIN)]);
     }
 }
 
@@ -518,7 +668,7 @@ function wpsg_request_refund_ajax() {
     check_ajax_referer('wpsg_refund_nonce');
 
     if (!is_user_logged_in()) {
-        wp_send_json_error(['message' => 'You must be logged in.']);
+        wp_send_json_error(['message' => __('You must be logged in.', WPSG_TEXT_DOMAIN)]);
     }
 
     $user   = wp_get_current_user();
@@ -528,7 +678,7 @@ function wpsg_request_refund_ajax() {
         wp_send_json_error(['message' => $result->get_error_message()]);
     }
 
-    wp_send_json_success(['message' => 'Your refund has been processed.']);
+    wp_send_json_success(['message' => __('Your refund has been processed.', WPSG_TEXT_DOMAIN)]);
 }
 
 // ---- Activation hook ----
