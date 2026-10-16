@@ -9,13 +9,13 @@ Go to **Developers → API keys**. Copy:
 
 **2. Create a recurring (subscription) price**
 Go to **Products → Add product**.
-- Name: "Initrix Mailbox" (or anything)
+- Name: "Mailbox Subscription" (or anything)
 - Pricing: **Recurring**, **Yearly**, set the amount
 - Save, then copy the **Price ID** (`price_…`)
 
 **3. Create a webhook endpoint**
 Go to **Developers → Webhooks → Add endpoint**.
-- URL: `https://initrix.com/wp-json/wpsg/v1/stripe-webhook`
+- URL: `https://your-domain.com/wp-json/wpsg/v1/stripe-webhook`
 - Events — select all four:
   - `checkout.session.completed`
   - `invoice.paid`
@@ -25,7 +25,7 @@ Go to **Developers → Webhooks → Add endpoint**.
 
 ## Part 2 — In WordPress admin
 
-**4.** Log in to WordPress Admin and go to **Settings → Subscription Gate Stripe**.
+**4.** Log in to WordPress Admin and go to **Settings → Subscription Gate → Stripe**.
 
 There are two possible situations:
 
