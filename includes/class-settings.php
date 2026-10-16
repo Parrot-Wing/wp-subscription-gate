@@ -13,18 +13,7 @@ class WPSG_Settings {
     const GROUP  = 'wpsg_notifications_group';
 
     public static function register() {
-        add_action('admin_menu', [__CLASS__, 'add_menu']);
         add_action('admin_init', [__CLASS__, 'register_settings']);
-    }
-
-    public static function add_menu() {
-        add_options_page(
-            'Subscription Gate Emails',
-            'Subscription Gate Emails',
-            'manage_options',
-            'wpsg-emails',
-            [__CLASS__, 'render_page']
-        );
     }
 
     public static function register_settings() {
@@ -168,15 +157,13 @@ class WPSG_Settings {
         ];
     }
 
-    public static function render_page() {
+    public static function render_form() {
         if (!current_user_can('manage_options')) {
             return;
         }
         $opts = self::get();
         ?>
-        <div class="wrap">
-            <h1><?php esc_html_e('Subscription Gate Emails', 'wp-subscription-gate'); ?></h1>
-            <p><?php esc_html_e('Use placeholders like %user_email% and %user_ip% (admin emails only). The sender (From) address is controlled by Easy WP SMTP.', 'wp-subscription-gate'); ?></p>
+        <p><?php esc_html_e('Use placeholders like %user_email% and %user_ip% (admin emails only). The sender (From) address is controlled by Easy WP SMTP.', WPSG_TEXT_DOMAIN); ?></p>
             <form method="post" action="options.php">
                 <?php settings_fields(self::GROUP); ?>
                 <?php foreach (self::email_types() as $type) : ?>
@@ -190,7 +177,7 @@ class WPSG_Settings {
                                     $name = self::OPTION . '[' . $f['id'] . ']';
                                     $val  = isset($opts[$f['id']]) ? $opts[$f['id']] : '';
                                     if ($f['type'] === 'checkbox') : ?>
-                                        <label><input type="checkbox" id="<?php echo esc_attr($f['id']); ?>" name="<?php echo esc_attr($name); ?>" value="1" <?php checked(1, $val); ?> /> <?php esc_html_e('Enabled', 'wp-subscription-gate'); ?></label>
+                                        <label><input type="checkbox" id="<?php echo esc_attr($f['id']); ?>" name="<?php echo esc_attr($name); ?>" value="1" <?php checked(1, $val); ?> /> <?php esc_html_e('Enabled', WPSG_TEXT_DOMAIN); ?></label>
                                     <?php elseif ($f['type'] === 'textarea') : ?>
                                         <textarea id="<?php echo esc_attr($f['id']); ?>" name="<?php echo esc_attr($name); ?>" rows="8" class="large-text code"><?php echo esc_textarea($val); ?></textarea>
                                     <?php else : ?>
@@ -200,14 +187,13 @@ class WPSG_Settings {
                             </tr>
                         <?php endforeach; ?>
                         <tr>
-                            <th scope="row"><?php esc_html_e('Available placeholders', 'wp-subscription-gate'); ?></th>
+                            <th scope="row"><?php esc_html_e('Available placeholders', WPSG_TEXT_DOMAIN); ?></th>
                             <td><code><?php echo esc_html(implode('  ', $type['placeholders'])); ?></code></td>
                         </tr>
                     </table>
                 <?php endforeach; ?>
                 <?php submit_button(); ?>
             </form>
-        </div>
         <?php
     }
 }

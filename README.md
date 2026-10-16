@@ -21,7 +21,7 @@ Stripe Checkout annual subscription for mailbox provisioning. No paid plugin dep
 
 1. Clone this repo into `wp-content/plugins/wp-subscription-gate/`. The Stripe PHP SDK is bundled — no Composer needed.
 2. Activate the plugin in WordPress Admin → Plugins.
-3. Go to **Settings → Subscription Gate Stripe** and paste your Stripe credentials (Secret key, Publishable key, Price ID, Webhook signing secret). Use test keys (`sk_test_`, `pk_test_`) and a test Price ID first.
+3. Go to **Settings → Subscription Gate → Stripe** and paste your Stripe credentials (Secret key, Publishable key, Price ID, Webhook signing secret). Use test keys (`sk_test_`, `pk_test_`) and a test Price ID first.
 
    As an alternative, you can define the constants in `wp-config.php` before the "stop editing" line — they take priority over the settings page:
 
@@ -35,12 +35,17 @@ Stripe Checkout annual subscription for mailbox provisioning. No paid plugin dep
 6. In Stripe Dashboard → Developers → Webhooks, create an endpoint at `https://your-domain/wp-json/wpsg/v1/stripe-webhook` listening for: `checkout.session.completed`, `invoice.paid`, `customer.subscription.deleted`, `invoice.payment_failed`.
 7. Test with Stripe's test card `4242 4242 4242 4242` before switching to live keys.
 
-## Shortcode
+## Upgrading from 1.1.x
 
-    [wpsg_register]
+Menu management is now opt-in. After upgrading, the plugin leaves your navigation menus alone by default. To restore the old visibility behavior (hide Login/Registration while logged in, hide Account/Email Login while logged out), go to **Settings → Subscription Gate → Pages & Behavior** and check all three **Menu visibility** options. Existing Stripe and email settings are preserved.
 
-Renders: email prefix input + domain dropdown + password + confirm password. The domain list defaults to `['initrix.com']`. Use the filter `wpsg_registration_domains` to customize.
+## Shortcodes
+
+- `[wpsg_register]` — signup form: email prefix + domain dropdown + password + confirm password. The domain dropdown defaults to the site's own domain (from `home_url()`). Use the filter `wpsg_registration_domains` to customize.
+- `[wpsg_mail_login]` — mailbox login / subscription-status gate.
+- `[wpsg_account]` — account management for logged-in users.
+- `[wpsg_login]` — optional branded login button. Links to the configured login URL and returns users to the destination chosen under Settings → Subscription Gate → Pages & Behavior → Login.
 
 ## Credentials
 
-Stripe credentials are configured in **WordPress Admin → Settings → Subscription Gate Stripe** and stored in the database as `wpsg_stripe_*` options. If the `WPSG_STRIPE_*` constants are defined in `wp-config.php`, they take priority. No secret values are committed to this repository.
+Stripe credentials are configured in **WordPress Admin → Settings → Subscription Gate → Stripe** and stored in the database as `wpsg_stripe_*` options. If the `WPSG_STRIPE_*` constants are defined in `wp-config.php`, they take priority. No secret values are committed to this repository.
