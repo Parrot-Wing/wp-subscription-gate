@@ -53,7 +53,7 @@ function wpsg_pages_option() {
             'mail_login_page_id'            => 0,
             'login_url'                     => '',
             'webmail_url'                   => '',
-            'after_login_redirect'          => 'default',
+            'after_login_redirect'          => 'account',
             'after_login_redirect_url'      => '',
             'hide_account_logged_out'       => 0,
             'hide_mail_login_logged_out'    => 0,
@@ -163,7 +163,7 @@ function wpsg_login_url($redirect = '') {
  */
 function wpsg_after_login_url() {
     $opts   = wpsg_pages_option();
-    $choice = isset($opts['after_login_redirect']) ? $opts['after_login_redirect'] : 'default';
+    $choice = isset($opts['after_login_redirect']) ? $opts['after_login_redirect'] : 'account';
     $url    = '';
 
     if ($choice === 'account') {

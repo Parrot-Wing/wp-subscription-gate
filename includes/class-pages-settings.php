@@ -30,7 +30,7 @@ class WPSG_Pages_Settings {
             'mail_login_page_id'            => 0,
             'login_url'                     => '',
             'webmail_url'                   => '',
-            'after_login_redirect'          => 'default',
+            'after_login_redirect'          => 'account',
             'after_login_redirect_url'      => '',
             'hide_account_logged_out'       => 0,
             'hide_mail_login_logged_out'    => 0,
@@ -53,8 +53,8 @@ class WPSG_Pages_Settings {
         $out['login_url']           = isset($input['login_url']) ? esc_url_raw(wp_unslash($input['login_url'])) : '';
         $out['webmail_url']         = isset($input['webmail_url']) ? esc_url_raw(wp_unslash($input['webmail_url'])) : '';
 
-        $after_login = isset($input['after_login_redirect']) ? sanitize_key(wp_unslash($input['after_login_redirect'])) : 'default';
-        $out['after_login_redirect'] = in_array($after_login, ['default', 'account', 'mailbox', 'custom'], true) ? $after_login : 'default';
+        $after_login = isset($input['after_login_redirect']) ? sanitize_key(wp_unslash($input['after_login_redirect'])) : 'account';
+        $out['after_login_redirect'] = in_array($after_login, ['default', 'account', 'mailbox', 'custom'], true) ? $after_login : 'account';
         $out['after_login_redirect_url'] = isset($input['after_login_redirect_url']) ? esc_url_raw(wp_unslash($input['after_login_redirect_url'])) : '';
 
         $out['hide_account_logged_out']    = !empty($input['hide_account_logged_out']) ? 1 : 0;
@@ -204,9 +204,9 @@ class WPSG_Pages_Settings {
                         <th scope="row"><label for="wpsg-after-login"><?php esc_html_e('After login, send users to', WPSG_TEXT_DOMAIN); ?></label></th>
                         <td>
                             <select id="wpsg-after-login" name="<?php echo esc_attr(self::OPTION . '[after_login_redirect]'); ?>">
-                                <option value="default" <?php selected('default', $opts['after_login_redirect']); ?>><?php esc_html_e('WordPress default (dashboard)', WPSG_TEXT_DOMAIN); ?></option>
                                 <option value="account" <?php selected('account', $opts['after_login_redirect']); ?>><?php esc_html_e('Account page', WPSG_TEXT_DOMAIN); ?></option>
                                 <option value="mailbox" <?php selected('mailbox', $opts['after_login_redirect']); ?>><?php esc_html_e('Mailbox login page', WPSG_TEXT_DOMAIN); ?></option>
+                                <option value="default" <?php selected('default', $opts['after_login_redirect']); ?>><?php esc_html_e('WordPress default (dashboard)', WPSG_TEXT_DOMAIN); ?></option>
                                 <option value="custom" <?php selected('custom', $opts['after_login_redirect']); ?>><?php esc_html_e('Custom URL', WPSG_TEXT_DOMAIN); ?></option>
                             </select>
                             <p class="description"><?php esc_html_e('Where logged-in users land after authenticating. Applies to the [wpsg_login] button and the plugin’s other “Log In” links.', WPSG_TEXT_DOMAIN); ?></p>
