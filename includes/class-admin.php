@@ -62,7 +62,7 @@ class WPSG_Admin {
             <nav class="nav-tab-wrapper">
                 <?php foreach ($tabs as $key => $item) : ?>
                     <a href="<?php echo esc_url(add_query_arg(['page' => self::PAGE, 'tab' => $key], admin_url('options-general.php'))); ?>"
-                       class="nav-tab <?php echo $key === $tab ? 'nav-tab-active' : ''; ?>">
+                       class="nav-tab <?php echo $key === $tab ? 'nav-tab-active' : ''; ?>"<?php echo $key === $tab ? ' aria-current="page"' : ''; ?>>
                         <?php echo esc_html($item['label']); ?>
                     </a>
                 <?php endforeach; ?>

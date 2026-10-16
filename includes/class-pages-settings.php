@@ -182,7 +182,8 @@ class WPSG_Pages_Settings {
             </form>
 
             <h2><?php esc_html_e('Currently resolved values', WPSG_TEXT_DOMAIN); ?></h2>
-            <table class="widefat striped" style="max-width:720px;">
+            <div style="max-width:720px;padding:12px 16px;background:#fff;border:1px solid #c3c4c7;border-radius:4px;">
+            <table class="widefat striped">
                 <tbody>
                     <tr>
                         <td><?php esc_html_e('Account page', WPSG_TEXT_DOMAIN); ?></td>
@@ -202,6 +203,7 @@ class WPSG_Pages_Settings {
                     </tr>
                 </tbody>
             </table>
+            </div>
         <?php
     }
 }

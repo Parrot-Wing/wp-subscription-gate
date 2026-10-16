@@ -35,6 +35,10 @@ Stripe Checkout annual subscription for mailbox provisioning. No paid plugin dep
 6. In Stripe Dashboard → Developers → Webhooks, create an endpoint at `https://your-domain/wp-json/wpsg/v1/stripe-webhook` listening for: `checkout.session.completed`, `invoice.paid`, `customer.subscription.deleted`, `invoice.payment_failed`.
 7. Test with Stripe's test card `4242 4242 4242 4242` before switching to live keys.
 
+## Upgrading from 1.1.x
+
+Menu management is now opt-in. After upgrading, the plugin leaves your navigation menus alone by default. To restore the old visibility behavior (hide Login/Registration while logged in, hide Account/Email Login while logged out), go to **Settings → Subscription Gate → Pages & Behavior** and set **Menu mode** to **Titles**. Existing Stripe and email settings are preserved.
+
 ## Shortcode
 
     [wpsg_register]

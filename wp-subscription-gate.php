@@ -234,6 +234,10 @@ function wpsg_enqueue_frontend_assets() {
 add_filter('wp_nav_menu_objects', 'wpsg_filter_nav_menu_objects', 10);
 add_filter('wp_nav_menu_items', 'wpsg_filter_nav_menu_items', 10, 2);
 
+function wpsg_urls_match($url1, $url2) {
+    return untrailingslashit((string) $url1) === untrailingslashit((string) $url2);
+}
+
 function wpsg_filter_nav_menu_objects($items) {
     $mode = wpsg_menu_mode();
     if ($mode === 'off' || empty($items)) {
@@ -254,6 +258,14 @@ function wpsg_filter_nav_menu_objects($items) {
             $object_id     = isset($item->object_id) ? (int) $item->object_id : 0;
             $is_account    = $account_id && $object_id === $account_id;
             $is_mail_login = $mail_login_id && $object_id === $mail_login_id;
+
+            // Custom links don't carry an object_id, so also compare URLs.
+            if (!$is_account && $account_id && isset($item->url)) {
+                $is_account = wpsg_urls_match($item->url, get_permalink($account_id));
+            }
+            if (!$is_mail_login && $mail_login_id && isset($item->url)) {
+                $is_mail_login = wpsg_urls_match($item->url, get_permalink($mail_login_id));
+            }
         } elseif ($mode === 'titles') {
             $is_account      = ($item->title === 'Account');
             $is_mail_login   = ($item->title === 'Email Login');
@@ -354,6 +366,7 @@ add_action('template_redirect', function () {
 function wpsg_mail_login_shortcode() {
     ob_start();
     $uid = wp_unique_id('wpsg-mail-');
+    wp_enqueue_style('wpsg-register');
 
     if (!is_user_logged_in()) {
         ?>
@@ -445,6 +458,7 @@ function wpsg_account_shortcode() {
     }
 
     $uid = wp_unique_id('wpsg-account-');
+    wp_enqueue_style('wpsg-register');
     ?>
 
     <div class="wpsg-account">

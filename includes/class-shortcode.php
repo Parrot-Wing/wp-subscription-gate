@@ -16,6 +16,18 @@ class WPSG_Shortcode {
 
         $domains = self::get_domains();
 
+        // Fallback for contexts where wpsg_enqueue_frontend_assets() didn't run
+        // (widgets, do_shortcode outside post content, etc.).
+        if (!wp_script_is('wpsg-register', 'enqueued')) {
+            wp_enqueue_script('wpsg-register');
+            wp_localize_script('wpsg-register', 'wpsg_ajax', [
+                'ajax_url'        => admin_url('admin-ajax.php'),
+                'nonce'           => wp_create_nonce('wpsg_register_nonce'),
+                'publishable_key' => self::get_publishable_key(),
+            ]);
+        }
+        wp_enqueue_style('wpsg-register');
+
         ob_start();
         ?>
         <div class="wpsg-register-wrapper">

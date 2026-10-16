@@ -14,7 +14,6 @@ if (!defined('ABSPATH')) exit;
 class WPSG_Stripe_Settings {
 
     const GROUP = 'wpsg_stripe_settings_group';
-    const PAGE  = 'wpsg-stripe';
 
     public static function register() {
         add_action('admin_init', [__CLASS__, 'register_settings']);
@@ -165,7 +164,6 @@ class WPSG_Stripe_Settings {
                                         <?php echo esc_html($field['label']); ?>
                                     </label>
                                     <p class="description"><?php echo esc_html($field['description']); ?></p>
-                                    <p class="description">Active source: settings page.</p>
                                 <?php else : ?>
                                     <input type="<?php echo esc_attr($field['type']); ?>"
                                            id="<?php echo esc_attr($id); ?>"
@@ -178,7 +176,6 @@ class WPSG_Stripe_Settings {
                                         <p class="description"><strong>Active source: wp-config.php.</strong> This field is disabled because the matching constant takes priority.</p>
                                     <?php else : ?>
                                         <p class="description"><?php echo esc_html($field['description']); ?></p>
-                                        <p class="description">Active source: settings page.</p>
                                     <?php endif; ?>
                                 <?php endif; ?>
                             </td>
