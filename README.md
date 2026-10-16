@@ -39,11 +39,12 @@ Stripe Checkout annual subscription for mailbox provisioning. No paid plugin dep
 
 Menu management is now opt-in. After upgrading, the plugin leaves your navigation menus alone by default. To restore the old visibility behavior (hide Login/Registration while logged in, hide Account/Email Login while logged out), go to **Settings → Subscription Gate → Pages & Behavior** and check both **Menu visibility** options. Existing Stripe and email settings are preserved.
 
-## Shortcode
+## Shortcodes
 
-    [wpsg_register]
-
-Renders: email prefix input + domain dropdown + password + confirm password. The domain dropdown defaults to the site's own domain (from `home_url()`). Use the filter `wpsg_registration_domains` to customize.
+- `[wpsg_register]` — signup form: email prefix + domain dropdown + password + confirm password. The domain dropdown defaults to the site's own domain (from `home_url()`). Use the filter `wpsg_registration_domains` to customize.
+- `[wpsg_mail_login]` — mailbox login / subscription-status gate.
+- `[wpsg_account]` — account management for logged-in users.
+- `[wpsg_login]` — optional branded login button. Links to the configured login URL and returns users to the destination chosen under Settings → Subscription Gate → Pages & Behavior → Login.
 
 ## Credentials
 

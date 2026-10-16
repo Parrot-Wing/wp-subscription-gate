@@ -53,6 +53,8 @@ function wpsg_pages_option() {
             'mail_login_page_id'            => 0,
             'login_url'                     => '',
             'webmail_url'                   => '',
+            'after_login_redirect'          => 'default',
+            'after_login_redirect_url'      => '',
             'hide_member_items_logged_out'  => 0,
             'hide_auth_items_logged_in'     => 0,
             'email_login_enabled'           => 1,
@@ -118,14 +120,49 @@ function wpsg_mail_url() {
 /**
  * Login page URL (portable). Configured value wins; otherwise uses the
  * legacy /login-2/ page when present, else the standard wp-login.php.
+ *
+ * @param string $redirect Optional same-site URL to return to after login.
  */
-function wpsg_login_url() {
+function wpsg_login_url($redirect = '') {
     $opts = wpsg_pages_option();
     $url  = trim((string) $opts['login_url']);
     if ($url === '') {
         $url = get_page_by_path('login-2') ? home_url('/login-2/') : wp_login_url();
     }
-    return apply_filters('wpsg_login_url', $url);
+
+    if ($redirect !== '') {
+        $redirect = wp_validate_redirect($redirect, '');
+        if ($redirect !== '') {
+            $url = add_query_arg('redirect_to', $redirect, $url);
+        }
+    }
+
+    return apply_filters('wpsg_login_url', $url, $redirect);
+}
+
+/**
+ * Where users should land after logging in, as configured under
+ * Settings -> Subscription Gate -> Pages & Behavior -> Login.
+ */
+function wpsg_after_login_url() {
+    $opts   = wpsg_pages_option();
+    $choice = isset($opts['after_login_redirect']) ? $opts['after_login_redirect'] : 'default';
+    $url    = '';
+
+    if ($choice === 'account') {
+        $url = wpsg_account_url();
+    } elseif ($choice === 'mailbox') {
+        $url = wpsg_mail_login_page_url();
+    } elseif ($choice === 'custom') {
+        $url = trim((string) $opts['after_login_redirect_url']);
+    }
+
+    // Keep redirect_to destinations same-site.
+    if ($url !== '') {
+        $url = wp_validate_redirect($url, '');
+    }
+
+    return apply_filters('wpsg_after_login_url', $url);
 }
 
 /**
@@ -208,6 +245,7 @@ WPSG_Admin::register();
 add_shortcode('wpsg_register',    ['WPSG_Shortcode', 'render']);
 add_shortcode('wpsg_mail_login',  'wpsg_mail_login_shortcode');
 add_shortcode('wpsg_account',     'wpsg_account_shortcode');
+add_shortcode('wpsg_login',       'wpsg_login_shortcode');
 
 // ---- Register AJAX handlers ----
 add_action('wp_ajax_wpsg_create_checkout',        ['WPSG_Shortcode', 'ajax_create_checkout']);
@@ -226,7 +264,7 @@ function wpsg_enqueue_frontend_assets() {
     if (is_singular()) {
         $post = get_post();
         if ($post && !empty($post->post_content)) {
-            foreach (['wpsg_register', 'wpsg_mail_login', 'wpsg_account'] as $tag) {
+            foreach (['wpsg_register', 'wpsg_mail_login', 'wpsg_account', 'wpsg_login'] as $tag) {
                 if (has_shortcode($post->post_content, $tag)) {
                     $enqueue = true;
                     break;
@@ -390,7 +428,7 @@ function wpsg_mail_login_shortcode() {
         ?>
         <div class="wpsg-mail-login">
             <p><?php esc_html_e('Please log in to access your mailbox.', WPSG_TEXT_DOMAIN); ?></p>
-            <a href="<?php echo esc_url(wpsg_login_url()); ?>" class="wpsg-btn"><?php esc_html_e('Log In', WPSG_TEXT_DOMAIN); ?></a>
+            <a href="<?php echo esc_url(wpsg_login_url(wpsg_after_login_url())); ?>" class="wpsg-btn"><?php esc_html_e('Log In', WPSG_TEXT_DOMAIN); ?></a>
         </div>
         <?php
         return ob_get_clean();
@@ -450,6 +488,35 @@ function wpsg_mail_login_shortcode() {
 }
 
 /**
+ * [wpsg_login] shortcode — thin branded wrapper around the configured
+ * WordPress login URL. Logged-in users get account/webmail shortcuts.
+ */
+function wpsg_login_shortcode() {
+    ob_start();
+    wp_enqueue_style('wpsg-register');
+
+    if (is_user_logged_in()) {
+        ?>
+        <div class="wpsg-login wpsg-login-logged-in">
+            <p><?php esc_html_e('You are already logged in.', WPSG_TEXT_DOMAIN); ?></p>
+            <a href="<?php echo esc_url(wpsg_account_url()); ?>" class="wpsg-btn wpsg-btn-primary"><?php esc_html_e('Manage Account', WPSG_TEXT_DOMAIN); ?></a>
+            <a href="<?php echo esc_url(wpsg_mail_url()); ?>" class="wpsg-btn"><?php esc_html_e('Go to Webmail', WPSG_TEXT_DOMAIN); ?></a>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+
+    $login_url = wpsg_login_url(wpsg_after_login_url());
+    ?>
+    <div class="wpsg-login">
+        <p><?php esc_html_e('Log in to manage your mailbox and subscription.', WPSG_TEXT_DOMAIN); ?></p>
+        <a href="<?php echo esc_url($login_url); ?>" class="wpsg-btn wpsg-btn-primary"><?php esc_html_e('Log In', WPSG_TEXT_DOMAIN); ?></a>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+
+/**
  * [wpsg_account] shortcode — subscription status + Stripe Customer Portal.
  */
 function wpsg_account_shortcode() {
@@ -459,7 +526,7 @@ function wpsg_account_shortcode() {
         ?>
         <div class="wpsg-account">
             <p><?php esc_html_e('Please log in to view your account.', WPSG_TEXT_DOMAIN); ?></p>
-            <a href="<?php echo esc_url(wpsg_login_url()); ?>" class="wpsg-btn"><?php esc_html_e('Log In', WPSG_TEXT_DOMAIN); ?></a>
+            <a href="<?php echo esc_url(wpsg_login_url(wpsg_after_login_url())); ?>" class="wpsg-btn"><?php esc_html_e('Log In', WPSG_TEXT_DOMAIN); ?></a>
         </div>
         <?php
         return ob_get_clean();
