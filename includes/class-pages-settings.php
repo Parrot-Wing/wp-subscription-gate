@@ -32,7 +32,8 @@ class WPSG_Pages_Settings {
             'webmail_url'                   => '',
             'after_login_redirect'          => 'default',
             'after_login_redirect_url'      => '',
-            'hide_member_items_logged_out'  => 0,
+            'hide_account_logged_out'       => 0,
+            'hide_mail_login_logged_out'    => 0,
             'hide_auth_items_logged_in'     => 0,
             'email_login_enabled'           => 1,
             'login_email_domain'            => '',
@@ -56,8 +57,9 @@ class WPSG_Pages_Settings {
         $out['after_login_redirect'] = in_array($after_login, ['default', 'account', 'mailbox', 'custom'], true) ? $after_login : 'default';
         $out['after_login_redirect_url'] = isset($input['after_login_redirect_url']) ? esc_url_raw(wp_unslash($input['after_login_redirect_url'])) : '';
 
-        $out['hide_member_items_logged_out'] = !empty($input['hide_member_items_logged_out']) ? 1 : 0;
-        $out['hide_auth_items_logged_in']    = !empty($input['hide_auth_items_logged_in']) ? 1 : 0;
+        $out['hide_account_logged_out']    = !empty($input['hide_account_logged_out']) ? 1 : 0;
+        $out['hide_mail_login_logged_out'] = !empty($input['hide_mail_login_logged_out']) ? 1 : 0;
+        $out['hide_auth_items_logged_in']  = !empty($input['hide_auth_items_logged_in']) ? 1 : 0;
 
         $out['email_login_enabled'] = !empty($input['email_login_enabled']) ? 1 : 0;
 
@@ -150,9 +152,13 @@ class WPSG_Pages_Settings {
                     <tr>
                         <th scope="row"><?php esc_html_e('Logged-out visitors', WPSG_TEXT_DOMAIN); ?></th>
                         <td>
-                            <label>
-                                <input type="checkbox" name="<?php echo esc_attr(self::OPTION . '[hide_member_items_logged_out]'); ?>" value="1" <?php checked(1, $opts['hide_member_items_logged_out']); ?> />
-                                <?php esc_html_e('Hide the Account and Mailbox Login menu items.', WPSG_TEXT_DOMAIN); ?>
+                            <label style="display:block;margin-bottom:6px;">
+                                <input type="checkbox" name="<?php echo esc_attr(self::OPTION . '[hide_account_logged_out]'); ?>" value="1" <?php checked(1, $opts['hide_account_logged_out']); ?> />
+                                <?php esc_html_e('Hide the Account menu item.', WPSG_TEXT_DOMAIN); ?>
+                            </label>
+                            <label style="display:block;">
+                                <input type="checkbox" name="<?php echo esc_attr(self::OPTION . '[hide_mail_login_logged_out]'); ?>" value="1" <?php checked(1, $opts['hide_mail_login_logged_out']); ?> />
+                                <?php esc_html_e('Hide the Mailbox Login / Email Login menu item.', WPSG_TEXT_DOMAIN); ?>
                             </label>
                         </td>
                     </tr>
@@ -161,7 +167,7 @@ class WPSG_Pages_Settings {
                         <td>
                             <label>
                                 <input type="checkbox" name="<?php echo esc_attr(self::OPTION . '[hide_auth_items_logged_in]'); ?>" value="1" <?php checked(1, $opts['hide_auth_items_logged_in']); ?> />
-                                <?php esc_html_e('Hide menu items named exactly “Login” and “Registration”.', WPSG_TEXT_DOMAIN); ?>
+                                <?php esc_html_e('Hide Login and Registration menu items.', WPSG_TEXT_DOMAIN); ?>
                             </label>
                         </td>
                     </tr>
