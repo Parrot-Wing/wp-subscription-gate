@@ -26,18 +26,19 @@ class WPSG_Pages_Settings {
 
     public static function defaults() {
         return [
-            'account_page_id'     => 0,
-            'mail_login_page_id'  => 0,
-            'login_url'           => '',
-            'webmail_url'         => '',
-            'menu_mode'           => 'off',
-            'email_login_enabled' => 1,
-            'login_email_domain'  => '',
+            'account_page_id'               => 0,
+            'mail_login_page_id'            => 0,
+            'login_url'                     => '',
+            'webmail_url'                   => '',
+            'hide_member_items_logged_out'  => 0,
+            'hide_auth_items_logged_in'     => 0,
+            'email_login_enabled'           => 1,
+            'login_email_domain'            => '',
         ];
     }
 
     public static function get() {
-        return wp_parse_args((array) get_option(self::OPTION, []), self::defaults());
+        return wpsg_pages_option();
     }
 
     public static function sanitize($input) {
@@ -49,8 +50,8 @@ class WPSG_Pages_Settings {
         $out['login_url']           = isset($input['login_url']) ? esc_url_raw(wp_unslash($input['login_url'])) : '';
         $out['webmail_url']         = isset($input['webmail_url']) ? esc_url_raw(wp_unslash($input['webmail_url'])) : '';
 
-        $menu_mode     = isset($input['menu_mode']) ? sanitize_key(wp_unslash($input['menu_mode'])) : 'off';
-        $out['menu_mode'] = in_array($menu_mode, ['off', 'pages', 'titles'], true) ? $menu_mode : 'off';
+        $out['hide_member_items_logged_out'] = !empty($input['hide_member_items_logged_out']) ? 1 : 0;
+        $out['hide_auth_items_logged_in']    = !empty($input['hide_auth_items_logged_in']) ? 1 : 0;
 
         $out['email_login_enabled'] = !empty($input['email_login_enabled']) ? 1 : 0;
 
@@ -81,7 +82,7 @@ class WPSG_Pages_Settings {
                         </ul>
                     </li>
                     <li><?php esc_html_e('Pick those pages below. The plugin then uses them for its “Log In”, renewal, and Stripe return links instead of guessing page slugs.', WPSG_TEXT_DOMAIN); ?></li>
-                    <li><?php esc_html_e('Decide whether the plugin may adjust your navigation menu (see Menu behavior). Menu changes are off by default so a new site is never surprised.', WPSG_TEXT_DOMAIN); ?></li>
+                    <li><?php esc_html_e('Optionally choose which menu items the plugin hides based on login state (see Menu visibility). Both options are off by default so a new site is never surprised.', WPSG_TEXT_DOMAIN); ?></li>
                 </ol>
             </div>
 
@@ -137,21 +138,31 @@ class WPSG_Pages_Settings {
                     </tr>
                 </table>
 
-                <h2><?php esc_html_e('Menu behavior', WPSG_TEXT_DOMAIN); ?></h2>
+                <h2><?php esc_html_e('Menu visibility', WPSG_TEXT_DOMAIN); ?></h2>
                 <table class="form-table" role="presentation">
                     <tr>
-                        <th scope="row"><label for="wpsg-menu-mode"><?php esc_html_e('Menu mode', WPSG_TEXT_DOMAIN); ?></label></th>
+                        <th scope="row"><?php esc_html_e('Logged-out visitors', WPSG_TEXT_DOMAIN); ?></th>
                         <td>
-                            <select id="wpsg-menu-mode" name="<?php echo esc_attr(self::OPTION . '[menu_mode]'); ?>">
-                                <option value="off" <?php selected('off', $opts['menu_mode']); ?>><?php esc_html_e('Off — leave my menus alone', WPSG_TEXT_DOMAIN); ?></option>
-                                <option value="pages" <?php selected('pages', $opts['menu_mode']); ?>><?php esc_html_e('Pages — hide Account and Mailbox Login from logged-out visitors by page', WPSG_TEXT_DOMAIN); ?></option>
-                                <option value="titles" <?php selected('titles', $opts['menu_mode']); ?>><?php esc_html_e('Titles — legacy: also hide Login / Registration by exact title', WPSG_TEXT_DOMAIN); ?></option>
-                            </select>
+                            <label>
+                                <input type="checkbox" name="<?php echo esc_attr(self::OPTION . '[hide_member_items_logged_out]'); ?>" value="1" <?php checked(1, $opts['hide_member_items_logged_out']); ?> />
+                                <?php esc_html_e('Hide the Account and Mailbox Login menu items.', WPSG_TEXT_DOMAIN); ?>
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e('Logged-in visitors', WPSG_TEXT_DOMAIN); ?></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="<?php echo esc_attr(self::OPTION . '[hide_auth_items_logged_in]'); ?>" value="1" <?php checked(1, $opts['hide_auth_items_logged_in']); ?> />
+                                <?php esc_html_e('Hide menu items named exactly “Login” and “Registration”.', WPSG_TEXT_DOMAIN); ?>
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"></th>
+                        <td>
                             <p class="description">
-                                <?php esc_html_e('“Pages” hides the Account and Mailbox Login menu items from logged-out visitors; logged-in visitors see those items unchanged. “Titles” additionally hides items named exactly “Login” and “Registration” while logged in.', WPSG_TEXT_DOMAIN); ?>
-                            </p>
-                            <p class="description">
-                                <?php esc_html_e('To disable menu changes without visiting this screen, add this to wp-config.php:', WPSG_TEXT_DOMAIN); ?>
+                                <?php esc_html_e('The Account and Mailbox Login items are matched by the pages chosen above, with a title fallback. To disable all menu changes without visiting this screen, add this to wp-config.php:', WPSG_TEXT_DOMAIN); ?>
                                 <code>define( 'WPSG_DISABLE_MENU_FILTERS', true );</code>
                             </p>
                         </td>

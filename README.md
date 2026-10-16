@@ -37,7 +37,7 @@ Stripe Checkout annual subscription for mailbox provisioning. No paid plugin dep
 
 ## Upgrading from 1.1.x
 
-Menu management is now opt-in. After upgrading, the plugin leaves your navigation menus alone by default. To restore the old visibility behavior (hide Login/Registration while logged in, hide Account/Email Login while logged out), go to **Settings → Subscription Gate → Pages & Behavior** and set **Menu mode** to **Titles**. Existing Stripe and email settings are preserved.
+Menu management is now opt-in. After upgrading, the plugin leaves your navigation menus alone by default. To restore the old visibility behavior (hide Login/Registration while logged in, hide Account/Email Login while logged out), go to **Settings → Subscription Gate → Pages & Behavior** and check both **Menu visibility** options. Existing Stripe and email settings are preserved.
 
 ## Shortcode
 

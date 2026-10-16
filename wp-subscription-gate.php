@@ -49,15 +49,29 @@ function wpsg_pages_option() {
     static $opts = null;
     if ($opts === null) {
         $defaults = [
-            'account_page_id'     => 0,
-            'mail_login_page_id'  => 0,
-            'login_url'           => '',
-            'webmail_url'         => '',
-            'menu_mode'           => 'off',
-            'email_login_enabled' => 1,
-            'login_email_domain'  => '',
+            'account_page_id'               => 0,
+            'mail_login_page_id'            => 0,
+            'login_url'                     => '',
+            'webmail_url'                   => '',
+            'hide_member_items_logged_out'  => 0,
+            'hide_auth_items_logged_in'     => 0,
+            'email_login_enabled'           => 1,
+            'login_email_domain'            => '',
         ];
         $opts = wp_parse_args((array) get_option('wpsg_pages', []), $defaults);
+
+        // Migrate the legacy single menu_mode value into the two visibility toggles.
+        if (isset($opts['menu_mode'])) {
+            $legacy = $opts['menu_mode'];
+            unset($opts['menu_mode']);
+            if ($legacy === 'pages' || $legacy === 'titles') {
+                $opts['hide_member_items_logged_out'] = 1;
+            }
+            if ($legacy === 'titles') {
+                $opts['hide_auth_items_logged_in'] = 1;
+            }
+            update_option('wpsg_pages', $opts);
+        }
     }
     return $opts;
 }
@@ -133,18 +147,27 @@ function wpsg_mail_login_page_url() {
 }
 
 /**
- * Menu mode. The WPSG_DISABLE_MENU_FILTERS constant is a hard kill-switch
- * that wins over the stored setting.
+ * Whether Account / Mailbox Login menu items should be hidden from
+ * logged-out visitors. WPSG_DISABLE_MENU_FILTERS wins over the setting.
  */
-function wpsg_menu_mode() {
+function wpsg_menu_hide_member_items() {
     if (defined('WPSG_DISABLE_MENU_FILTERS') && WPSG_DISABLE_MENU_FILTERS) {
-        return 'off';
+        return false;
     }
     $opts = wpsg_pages_option();
-    $mode = isset($opts['menu_mode']) && in_array($opts['menu_mode'], ['off', 'pages', 'titles'], true)
-        ? $opts['menu_mode']
-        : 'off';
-    return apply_filters('wpsg_menu_mode', $mode);
+    return !empty($opts['hide_member_items_logged_out']);
+}
+
+/**
+ * Whether Login / Registration menu items should be hidden from
+ * logged-in visitors. WPSG_DISABLE_MENU_FILTERS wins over the setting.
+ */
+function wpsg_menu_hide_auth_items() {
+    if (defined('WPSG_DISABLE_MENU_FILTERS') && WPSG_DISABLE_MENU_FILTERS) {
+        return false;
+    }
+    $opts = wpsg_pages_option();
+    return !empty($opts['hide_auth_items_logged_in']);
 }
 
 // ---- Stripe credential helpers (wp-config constants override DB options) ----
@@ -228,9 +251,8 @@ function wpsg_enqueue_frontend_assets() {
 }
 
 // ---- Navigation menu behavior (opt-in via Settings -> WPSG Pages & Behavior) ----
-// off    = plugin never touches menus (default for new sites)
-// pages  = hide Account / Email Login items from logged-out visitors by page ID
-// titles = legacy: also hide Login / Registration by exact title when logged in
+// Member items (Account / Mailbox Login) can be hidden from logged-out visitors.
+// Auth items (Login / Registration) can be hidden from logged-in visitors.
 add_filter('wp_nav_menu_objects', 'wpsg_filter_nav_menu_objects', 10);
 add_filter('wp_nav_menu_items', 'wpsg_filter_nav_menu_items', 10, 2);
 
@@ -239,8 +261,10 @@ function wpsg_urls_match($url1, $url2) {
 }
 
 function wpsg_filter_nav_menu_objects($items) {
-    $mode = wpsg_menu_mode();
-    if ($mode === 'off' || empty($items)) {
+    $hide_member = wpsg_menu_hide_member_items();
+    $hide_auth   = wpsg_menu_hide_auth_items();
+
+    if ((!$hide_member && !$hide_auth) || empty($items)) {
         return $items;
     }
 
@@ -249,43 +273,37 @@ function wpsg_filter_nav_menu_objects($items) {
     $mail_login_id = wpsg_mail_login_page_id();
 
     foreach ($items as $key => $item) {
-        $is_account      = false;
-        $is_mail_login   = false;
-        $is_login        = false;
-        $is_registration = false;
+        $is_member = false;
+        $is_auth   = false;
 
-        if ($mode === 'pages') {
-            $object_id     = isset($item->object_id) ? (int) $item->object_id : 0;
-            $is_account    = $account_id && $object_id === $account_id;
-            $is_mail_login = $mail_login_id && $object_id === $mail_login_id;
-
-            // Custom links don't carry an object_id, so also compare URLs.
-            if (!$is_account && $account_id && isset($item->url)) {
-                $is_account = wpsg_urls_match($item->url, get_permalink($account_id));
+        // Member pages: match by configured page ID first, then custom-link URL.
+        $object_id = isset($item->object_id) ? (int) $item->object_id : 0;
+        if (($account_id && $object_id === $account_id) || ($mail_login_id && $object_id === $mail_login_id)) {
+            $is_member = true;
+        }
+        if (!$is_member && isset($item->url)) {
+            if ($account_id && wpsg_urls_match($item->url, get_permalink($account_id))) {
+                $is_member = true;
             }
-            if (!$is_mail_login && $mail_login_id && isset($item->url)) {
-                $is_mail_login = wpsg_urls_match($item->url, get_permalink($mail_login_id));
+            if (!$is_member && $mail_login_id && wpsg_urls_match($item->url, get_permalink($mail_login_id))) {
+                $is_member = true;
             }
-        } elseif ($mode === 'titles') {
-            $is_account      = ($item->title === 'Account');
-            $is_mail_login   = ($item->title === 'Email Login');
-            $is_login        = ($item->title === 'Login');
-            $is_registration = ($item->title === 'Registration');
+        }
+        // Title fallback for legacy menus and sites without configured pages.
+        if (!$is_member && in_array($item->title, ['Account', 'Email Login'], true)) {
+            $is_member = true;
+        }
+        if (in_array($item->title, ['Login', 'Registration'], true)) {
+            $is_auth = true;
         }
 
-        if ($is_login || $is_registration) {
-            if ($logged_in) {
-                unset($items[$key]);
-            }
+        if ($hide_auth && $is_auth && $logged_in) {
+            unset($items[$key]);
             continue;
         }
 
-        if ($is_account || $is_mail_login) {
-            if (!$logged_in) {
-                unset($items[$key]);
-            }
-            // Logged-in users see these items unchanged: the plugin only
-            // controls visibility, never labels or destination URLs.
+        if ($hide_member && $is_member && !$logged_in) {
+            unset($items[$key]);
         }
     }
 
@@ -293,7 +311,7 @@ function wpsg_filter_nav_menu_objects($items) {
 }
 
 function wpsg_filter_nav_menu_items($items, $args) {
-    if (wpsg_menu_mode() === 'off') {
+    if (!wpsg_menu_hide_member_items() && !wpsg_menu_hide_auth_items()) {
         return $items;
     }
     if (is_user_logged_in()) {
