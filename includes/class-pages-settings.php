@@ -148,7 +148,7 @@ class WPSG_Pages_Settings {
                                 <option value="titles" <?php selected('titles', $opts['menu_mode']); ?>><?php esc_html_e('Titles — legacy: also hide Login / Registration by exact title', WPSG_TEXT_DOMAIN); ?></option>
                             </select>
                             <p class="description">
-                                <?php esc_html_e('“Pages” hides the Account and Mailbox Login menu items from logged-out visitors; logged-in visitors see those items unchanged. “Titles” additionally hides items named exactly “Login” and “Registration” while logged in (the original initrix behavior). The plugin only controls menu visibility — it never renames items or changes their destination URLs.', WPSG_TEXT_DOMAIN); ?>
+                                <?php esc_html_e('“Pages” hides the Account and Mailbox Login menu items from logged-out visitors; logged-in visitors see those items unchanged. “Titles” additionally hides items named exactly “Login” and “Registration” while logged in.', WPSG_TEXT_DOMAIN); ?>
                             </p>
                             <p class="description">
                                 <?php esc_html_e('To disable menu changes without visiting this screen, add this to wp-config.php:', WPSG_TEXT_DOMAIN); ?>
