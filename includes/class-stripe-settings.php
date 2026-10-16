@@ -136,7 +136,7 @@ class WPSG_Stripe_Settings {
                 </div>
             <?php endif; ?>
             <p>
-                <?php esc_html_e('Paste the values from your Stripe dashboard here. Values defined in wp-config.php (WPSG_STRIPE_* constants) take priority over the values saved on this page.', 'wp-subscription-gate'); ?>
+                <?php esc_html_e('Paste the values from your Stripe dashboard here. Values defined in wp-config.php (WPSG_STRIPE_* constants) take priority over the values saved on this page.', WPSG_TEXT_DOMAIN); ?>
             </p>
             <form method="post" action="options.php">
                 <?php settings_fields(self::GROUP); ?>

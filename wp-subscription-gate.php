@@ -63,37 +63,66 @@ function wpsg_pages_option() {
         ];
         $opts = wp_parse_args((array) get_option('wpsg_pages', []), $defaults);
 
-        // Migrate legacy visibility settings into the current three toggles.
-        $dirty = false;
-
-        if (isset($opts['menu_mode'])) {
-            $legacy = $opts['menu_mode'];
-            unset($opts['menu_mode']);
-            if ($legacy === 'pages' || $legacy === 'titles') {
-                $opts['hide_account_logged_out']    = 1;
-                $opts['hide_mail_login_logged_out'] = 1;
-            }
-            if ($legacy === 'titles') {
-                $opts['hide_auth_items_logged_in'] = 1;
-            }
-            $dirty = true;
-        }
-
-        if (isset($opts['hide_member_items_logged_out'])) {
-            if (!empty($opts['hide_member_items_logged_out'])) {
-                $opts['hide_account_logged_out']    = 1;
-                $opts['hide_mail_login_logged_out'] = 1;
-            }
-            unset($opts['hide_member_items_logged_out']);
-            $dirty = true;
-        }
-
-        if ($dirty) {
-            update_option('wpsg_pages', $opts);
-        }
+        // Migrate legacy visibility settings in memory; persistence happens
+        // on admin_init via wpsg_maybe_migrate_pages_option().
+        $opts = wpsg_migrate_pages_option($opts);
     }
     return $opts;
 }
+
+/**
+ * Migrate legacy visibility keys into the current three toggles.
+ *
+ * @param array $opts
+ * @param bool  $persist
+ * @return array
+ */
+function wpsg_migrate_pages_option($opts, $persist = false) {
+    $dirty = false;
+
+    if (isset($opts['menu_mode'])) {
+        $legacy = $opts['menu_mode'];
+        unset($opts['menu_mode']);
+        if ($legacy === 'pages' || $legacy === 'titles') {
+            $opts['hide_account_logged_out']    = 1;
+            $opts['hide_mail_login_logged_out'] = 1;
+        }
+        if ($legacy === 'titles') {
+            $opts['hide_auth_items_logged_in'] = 1;
+        }
+        $dirty = true;
+    }
+
+    if (isset($opts['hide_member_items_logged_out'])) {
+        if (!empty($opts['hide_member_items_logged_out'])) {
+            $opts['hide_account_logged_out']    = 1;
+            $opts['hide_mail_login_logged_out'] = 1;
+        }
+        unset($opts['hide_member_items_logged_out']);
+        $dirty = true;
+    }
+
+    if ($dirty && $persist) {
+        update_option('wpsg_pages', $opts);
+    }
+
+    return $opts;
+}
+
+/**
+ * Persist legacy settings migration in the admin.
+ */
+function wpsg_maybe_migrate_pages_option() {
+    if (!is_admin()) {
+        return;
+    }
+    $opts = get_option('wpsg_pages', []);
+    if (!is_array($opts)) {
+        $opts = [];
+    }
+    wpsg_migrate_pages_option($opts, true);
+}
+add_action('admin_init', 'wpsg_maybe_migrate_pages_option');
 
 /**
  * Account page ID (portable). Configured page wins; otherwise falls back to
@@ -340,6 +369,10 @@ function wpsg_filter_nav_menu_objects($items) {
     $account_id    = wpsg_account_page_id();
     $mail_login_id = wpsg_mail_login_page_id();
 
+    $account_titles    = (array) apply_filters('wpsg_account_menu_titles', ['Account']);
+    $mail_login_titles = (array) apply_filters('wpsg_mail_login_menu_titles', ['Email Login']);
+    $auth_titles       = (array) apply_filters('wpsg_auth_menu_titles', ['Login', 'Registration']);
+
     foreach ($items as $key => $item) {
         $is_account    = false;
         $is_mail_login = false;
@@ -365,14 +398,14 @@ function wpsg_filter_nav_menu_objects($items) {
         }
 
         if (!$is_account && !$is_mail_login) {
-            if ($item->title === 'Account') {
+            if (in_array($item->title, $account_titles, true)) {
                 $is_account = true;
-            } elseif ($item->title === 'Email Login') {
+            } elseif (in_array($item->title, $mail_login_titles, true)) {
                 $is_mail_login = true;
             }
         }
 
-        if (in_array($item->title, ['Login', 'Registration'], true)) {
+        if (in_array($item->title, $auth_titles, true)) {
             $is_auth = true;
         }
 
@@ -399,7 +432,7 @@ function wpsg_filter_nav_menu_items($items, $args) {
     if (!wpsg_menu_hide_account_item() && !wpsg_menu_hide_mail_login_item() && !wpsg_menu_hide_auth_items()) {
         return $items;
     }
-    if (is_user_logged_in()) {
+    if (is_user_logged_in() && apply_filters('wpsg_add_logout_link', true, $args)) {
         $logout_url = wp_logout_url(home_url());
         $items .= '<li class="menu-item menu-item-logout"><a href="' . esc_url($logout_url) . '">' . esc_html__('Logout', WPSG_TEXT_DOMAIN) . '</a></li>';
     }
