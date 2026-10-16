@@ -229,8 +229,8 @@ function wpsg_enqueue_frontend_assets() {
 
 // ---- Navigation menu behavior (opt-in via Settings -> WPSG Pages & Behavior) ----
 // off    = plugin never touches menus (default for new sites)
-// pages  = manage Account / Email Login items by their configured page ID
-// titles = legacy initrix behavior: exact titles Login / Registration / Email Login / Account
+// pages  = hide Account / Email Login items from logged-out visitors by page ID
+// titles = legacy: also hide Login / Registration by exact title when logged in
 add_filter('wp_nav_menu_objects', 'wpsg_filter_nav_menu_objects', 10);
 add_filter('wp_nav_menu_items', 'wpsg_filter_nav_menu_items', 10, 2);
 
@@ -271,18 +271,9 @@ function wpsg_filter_nav_menu_objects($items) {
         if ($is_account || $is_mail_login) {
             if (!$logged_in) {
                 unset($items[$key]);
-                continue;
             }
-            if ($is_account) {
-                $items[$key]->title = __('Account Management', WPSG_TEXT_DOMAIN);
-                $account_url = wpsg_account_url();
-                if ($account_url) {
-                    $items[$key]->url = $account_url;
-                }
-            }
-            if ($is_mail_login) {
-                $items[$key]->title = __('Email Inbox', WPSG_TEXT_DOMAIN);
-            }
+            // Logged-in users see these items unchanged: the plugin only
+            // controls visibility, never labels or destination URLs.
         }
     }
 

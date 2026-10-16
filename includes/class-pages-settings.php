@@ -144,11 +144,11 @@ class WPSG_Pages_Settings {
                         <td>
                             <select id="wpsg-menu-mode" name="<?php echo esc_attr(self::OPTION . '[menu_mode]'); ?>">
                                 <option value="off" <?php selected('off', $opts['menu_mode']); ?>><?php esc_html_e('Off — leave my menus alone', WPSG_TEXT_DOMAIN); ?></option>
-                                <option value="pages" <?php selected('pages', $opts['menu_mode']); ?>><?php esc_html_e('Pages — manage Account and Mailbox Login items by page', WPSG_TEXT_DOMAIN); ?></option>
-                                <option value="titles" <?php selected('titles', $opts['menu_mode']); ?>><?php esc_html_e('Titles — legacy: also match Login / Registration by exact title', WPSG_TEXT_DOMAIN); ?></option>
+                                <option value="pages" <?php selected('pages', $opts['menu_mode']); ?>><?php esc_html_e('Pages — hide Account and Mailbox Login from logged-out visitors by page', WPSG_TEXT_DOMAIN); ?></option>
+                                <option value="titles" <?php selected('titles', $opts['menu_mode']); ?>><?php esc_html_e('Titles — legacy: also hide Login / Registration by exact title', WPSG_TEXT_DOMAIN); ?></option>
                             </select>
                             <p class="description">
-                                <?php esc_html_e('“Pages” hides the Account and Mailbox Login menu items from logged-out visitors, and renames them to “Account Management” and “Email Inbox” for logged-in visitors. “Titles” additionally hides items named exactly “Login” and “Registration” while logged in (the original initrix behavior).', WPSG_TEXT_DOMAIN); ?>
+                                <?php esc_html_e('“Pages” hides the Account and Mailbox Login menu items from logged-out visitors; logged-in visitors see those items unchanged. “Titles” additionally hides items named exactly “Login” and “Registration” while logged in (the original initrix behavior). The plugin only controls menu visibility — it never renames items or changes their destination URLs.', WPSG_TEXT_DOMAIN); ?>
                             </p>
                             <p class="description">
                                 <?php esc_html_e('To disable menu changes without visiting this screen, add this to wp-config.php:', WPSG_TEXT_DOMAIN); ?>
