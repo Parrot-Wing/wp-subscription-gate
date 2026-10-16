@@ -13,18 +13,7 @@ class WPSG_Pages_Settings {
     const GROUP  = 'wpsg_pages_group';
 
     public static function register() {
-        add_action('admin_menu', [__CLASS__, 'add_menu']);
         add_action('admin_init', [__CLASS__, 'register_settings']);
-    }
-
-    public static function add_menu() {
-        add_options_page(
-            'WPSG Pages & Behavior',
-            'WPSG Pages & Behavior',
-            'manage_options',
-            'wpsg-pages',
-            [__CLASS__, 'render_page']
-        );
     }
 
     public static function register_settings() {
@@ -71,7 +60,7 @@ class WPSG_Pages_Settings {
         return $out;
     }
 
-    public static function render_page() {
+    public static function render_form() {
         if (!current_user_can('manage_options')) {
             return;
         }
@@ -80,10 +69,7 @@ class WPSG_Pages_Settings {
         $account_id    = wpsg_account_page_id();
         $mail_login_id = wpsg_mail_login_page_id();
         ?>
-        <div class="wrap">
-            <h1><?php esc_html_e('WP Subscription Gate — Pages &amp; Behavior', WPSG_TEXT_DOMAIN); ?></h1>
-
-            <div class="notice notice-info" style="padding:10px 14px;">
+        <div class="notice notice-info" style="padding:10px 14px;">
                 <p><strong><?php esc_html_e('How it works', WPSG_TEXT_DOMAIN); ?></strong></p>
                 <ol style="margin-left:1.4em;list-style:decimal;">
                     <li>
@@ -216,7 +202,6 @@ class WPSG_Pages_Settings {
                     </tr>
                 </tbody>
             </table>
-        </div>
         <?php
     }
 }

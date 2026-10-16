@@ -17,18 +17,7 @@ class WPSG_Stripe_Settings {
     const PAGE  = 'wpsg-stripe';
 
     public static function register() {
-        add_action('admin_menu', [__CLASS__, 'add_menu']);
         add_action('admin_init', [__CLASS__, 'register_settings']);
-    }
-
-    public static function add_menu() {
-        add_options_page(
-            'Subscription Gate Stripe',
-            'Subscription Gate Stripe',
-            'manage_options',
-            self::PAGE,
-            [__CLASS__, 'render_page']
-        );
     }
 
     public static function register_settings() {
@@ -137,14 +126,12 @@ class WPSG_Stripe_Settings {
         ];
     }
 
-    public static function render_page() {
+    public static function render_form() {
         if (!current_user_can('manage_options')) {
             return;
         }
         ?>
-        <div class="wrap">
-            <h1><?php esc_html_e('Subscription Gate Stripe', 'wp-subscription-gate'); ?></h1>
-            <?php if (self::has_overrides()) : ?>
+        <?php if (self::has_overrides()) : ?>
                 <div class="notice notice-warning inline">
                     <p><strong>Some values are controlled by wp-config.php.</strong> The WPSG_STRIPE_* constants take priority over this page, so the fields below are disabled while those constants are defined.</p>
                 </div>
@@ -200,7 +187,6 @@ class WPSG_Stripe_Settings {
                 </table>
                 <?php submit_button(); ?>
             </form>
-        </div>
         <?php
     }
 }

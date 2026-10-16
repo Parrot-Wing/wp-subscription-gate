@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WP Subscription Gate
  * Description: Stripe Checkout annual subscription for hosted mailboxes. No paid plugin dependency.
- * Version: 1.2.0
+ * Version: 1.3.0
  * Requires PHP: 8.3
  * Author: WPSG
  * Text Domain: wp-subscription-gate
@@ -10,7 +10,7 @@
 
 if (!defined('ABSPATH')) exit;
 
-define('WPSG_VERSION', '1.2.0');
+define('WPSG_VERSION', '1.3.0');
 define('WPSG_PATH', plugin_dir_path(__FILE__));
 define('WPSG_URL', plugin_dir_url(__FILE__));
 define('WPSG_TEXT_DOMAIN', 'wp-subscription-gate');
@@ -40,6 +40,7 @@ require_once WPSG_PATH . 'includes/class-stripe-settings.php';
 require_once WPSG_PATH . 'includes/class-notifications.php';
 require_once WPSG_PATH . 'includes/class-refund.php';
 require_once WPSG_PATH . 'includes/class-pages-settings.php';
+require_once WPSG_PATH . 'includes/class-admin.php';
 
 /**
  * Pages & behavior settings (single option array).
@@ -177,8 +178,8 @@ WPSG_Stripe_Settings::register();
 // ---- Register pages & behavior settings ----
 WPSG_Pages_Settings::register();
 
-// ---- Register pages & behavior settings ----
-WPSG_Pages_Settings::register();
+// ---- Register single consolidated settings page ----
+WPSG_Admin::register();
 
 // ---- Register shortcodes ----
 add_shortcode('wpsg_register',    ['WPSG_Shortcode', 'render']);

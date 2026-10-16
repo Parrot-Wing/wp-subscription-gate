@@ -13,18 +13,7 @@ class WPSG_Settings {
     const GROUP  = 'wpsg_notifications_group';
 
     public static function register() {
-        add_action('admin_menu', [__CLASS__, 'add_menu']);
         add_action('admin_init', [__CLASS__, 'register_settings']);
-    }
-
-    public static function add_menu() {
-        add_options_page(
-            'Subscription Gate Emails',
-            'Subscription Gate Emails',
-            'manage_options',
-            'wpsg-emails',
-            [__CLASS__, 'render_page']
-        );
     }
 
     public static function register_settings() {
@@ -168,15 +157,13 @@ class WPSG_Settings {
         ];
     }
 
-    public static function render_page() {
+    public static function render_form() {
         if (!current_user_can('manage_options')) {
             return;
         }
         $opts = self::get();
         ?>
-        <div class="wrap">
-            <h1><?php esc_html_e('Subscription Gate Emails', 'wp-subscription-gate'); ?></h1>
-            <p><?php esc_html_e('Use placeholders like %user_email% and %user_ip% (admin emails only). The sender (From) address is controlled by Easy WP SMTP.', 'wp-subscription-gate'); ?></p>
+        <p><?php esc_html_e('Use placeholders like %user_email% and %user_ip% (admin emails only). The sender (From) address is controlled by Easy WP SMTP.', 'wp-subscription-gate'); ?></p>
             <form method="post" action="options.php">
                 <?php settings_fields(self::GROUP); ?>
                 <?php foreach (self::email_types() as $type) : ?>
@@ -207,7 +194,6 @@ class WPSG_Settings {
                 <?php endforeach; ?>
                 <?php submit_button(); ?>
             </form>
-        </div>
         <?php
     }
 }
