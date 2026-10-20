@@ -44,8 +44,10 @@ Menu management is now opt-in. After upgrading, the plugin leaves your navigatio
 - `[wpsg_register]` — signup form: email prefix + domain dropdown + password + confirm password. The domain dropdown defaults to the site's own domain (from `home_url()`). Use the filter `wpsg_registration_domains` to customize.
 - `[wpsg_mail_login]` — mailbox login / subscription-status gate.
 - `[wpsg_account]` — account management for logged-in users.
-- `[wpsg_login]` — optional branded login button. Links to the configured login URL and returns users to the destination chosen under Settings → Subscription Gate → Pages & Behavior → Login.
+- `[wpsg_login]` — embedded login form for logged-out visitors (username or email address + password, with brute-force throttling). Submits to the same page and never exposes `wp-login.php`. On success, users land at the destination chosen under Settings → Subscription Gate → Pages & Behavior → Login. Logged-in visitors see Manage Account / Go to Webmail buttons.
 
 ## Credentials
 
 Stripe credentials are configured in **WordPress Admin → Settings → Subscription Gate → Stripe** and stored in the database as `wpsg_stripe_*` options. If the `WPSG_STRIPE_*` constants are defined in `wp-config.php`, they take priority. No secret values are committed to this repository.
+
+The page containing `[wpsg_login]` includes a nonce and must be excluded from page caching (for example W3 Total Cache → Page Cache → Never cache the following pages, or the equivalent per-page exclusion for your caching plugin). Otherwise the cached nonce will expire and login submissions will fail with a nonce error.

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WP Subscription Gate
  * Description: Stripe Checkout annual subscription for hosted mailboxes. No paid plugin dependency.
- * Version: 1.2.0
+ * Version: 1.3.0
  * Requires PHP: 8.3
  * Author: WPSG
  * Text Domain: wp-subscription-gate
@@ -10,7 +10,7 @@
 
 if (!defined('ABSPATH')) exit;
 
-define('WPSG_VERSION', '1.2.0');
+define('WPSG_VERSION', '1.3.0');
 define('WPSG_PATH', plugin_dir_path(__FILE__));
 define('WPSG_URL', plugin_dir_url(__FILE__));
 define('WPSG_TEXT_DOMAIN', 'wp-subscription-gate');
@@ -305,6 +305,9 @@ add_shortcode('wpsg_mail_login',  'wpsg_mail_login_shortcode');
 add_shortcode('wpsg_account',     'wpsg_account_shortcode');
 add_shortcode('wpsg_login',       'wpsg_login_shortcode');
 
+// ---- Handle [wpsg_login] form submissions ----
+add_action('init', 'wpsg_maybe_handle_login_post');
+
 // ---- Register AJAX handlers ----
 add_action('wp_ajax_wpsg_create_checkout',        ['WPSG_Shortcode', 'ajax_create_checkout']);
 add_action('wp_ajax_nopriv_wpsg_create_checkout',  ['WPSG_Shortcode', 'ajax_create_checkout']);
@@ -568,8 +571,115 @@ function wpsg_mail_login_shortcode() {
 }
 
 /**
- * [wpsg_login] shortcode — thin branded wrapper around the configured
- * WordPress login URL. Logged-in users get account/webmail shortcuts.
+ * Handles same-page [wpsg_login] form submissions on init, before output.
+ */
+function wpsg_maybe_handle_login_post() {
+    if (empty($_POST['wpsg_login_submit'])) {
+        return;
+    }
+    if (is_user_logged_in()) {
+        return;
+    }
+
+    // 1. Nonce
+    if (!isset($_POST['wpsg_login_nonce']) || !wp_verify_nonce($_POST['wpsg_login_nonce'], 'wpsg_login')) {
+        wpsg_login_redirect_failure('failed');
+    }
+
+    // 2. Throttle
+    if (wpsg_login_throttle_is_locked()) {
+        wpsg_login_redirect_failure('locked');
+    }
+
+    // 3. Credentials
+    $username = isset($_POST['wpsg_login_username']) ? sanitize_text_field(wp_unslash($_POST['wpsg_login_username'])) : '';
+    $password = isset($_POST['wpsg_login_password']) ? (string) wp_unslash($_POST['wpsg_login_password']) : '';
+    $remember = !empty($_POST['wpsg_login_remember']);
+
+    if ($username === '' || $password === '') {
+        wpsg_login_redirect_failure('failed');
+    }
+
+    // 4. Authenticate
+    $user = wp_signon([
+        'user_login'    => $username,
+        'user_password' => $password,
+        'remember'      => $remember,
+    ], is_ssl());
+
+    if (is_wp_error($user)) {
+        wpsg_login_throttle_record_failure();
+        wpsg_login_redirect_failure('failed');
+    }
+
+    // 5. Success
+    wpsg_login_throttle_reset();
+    $redirect = wpsg_after_login_url();
+    if ($redirect === '') {
+        $redirect = home_url('/');
+    }
+    wp_safe_redirect($redirect);
+    exit;
+}
+
+/**
+ * Redirect back to the login page with a generic failure flag (PRG pattern).
+ */
+function wpsg_login_redirect_failure($state) {
+    $redirect = isset($_POST['wpsg_login_redirect']) ? wp_unslash($_POST['wpsg_login_redirect']) : '';
+    $redirect = wp_validate_redirect($redirect, home_url('/'));
+
+    $redirect = add_query_arg('wpsg_login', $state, $redirect);
+    wp_safe_redirect($redirect);
+    exit;
+}
+
+/**
+ * Brute-force throttle keyed by a hash of the visitor IP.
+ */
+function wpsg_login_throttle_key() {
+    $ip = isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : 'unknown';
+    return 'wpsg_login_fail_' . substr(hash('sha256', $ip), 0, 32);
+}
+
+function wpsg_login_throttle_lock_key() {
+    $ip = isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : 'unknown';
+    return 'wpsg_login_lock_' . substr(hash('sha256', $ip), 0, 32);
+}
+
+function wpsg_login_throttle_limit() {
+    return (int) apply_filters('wpsg_login_throttle_limit', 10);
+}
+
+function wpsg_login_throttle_window() {
+    return (int) apply_filters('wpsg_login_throttle_window', 900); // 15 minutes
+}
+
+function wpsg_login_throttle_is_locked() {
+    if (get_transient(wpsg_login_throttle_lock_key())) {
+        return true;
+    }
+    return (int) get_transient(wpsg_login_throttle_key()) >= wpsg_login_throttle_limit();
+}
+
+function wpsg_login_throttle_record_failure() {
+    $key   = wpsg_login_throttle_key();
+    $count = (int) get_transient($key);
+    set_transient($key, $count + 1, wpsg_login_throttle_window());
+
+    if ($count + 1 >= wpsg_login_throttle_limit()) {
+        set_transient(wpsg_login_throttle_lock_key(), 1, wpsg_login_throttle_window());
+    }
+}
+
+function wpsg_login_throttle_reset() {
+    delete_transient(wpsg_login_throttle_key());
+    delete_transient(wpsg_login_throttle_lock_key());
+}
+
+/**
+ * [wpsg_login] shortcode — embedded login form (PRG, same-page POST).
+ * Logged-in users get account/webmail shortcuts.
  */
 function wpsg_login_shortcode() {
     ob_start();
@@ -586,11 +696,44 @@ function wpsg_login_shortcode() {
         return ob_get_clean();
     }
 
-    $login_url = wpsg_login_url(wpsg_after_login_url());
+    $error = '';
+    if (isset($_GET['wpsg_login'])) {
+        $state = sanitize_key(wp_unslash($_GET['wpsg_login']));
+        if ($state === 'locked') {
+            $error = __('Too many failed login attempts. Please try again in 15 minutes.', WPSG_TEXT_DOMAIN);
+        } elseif ($state === 'failed') {
+            $error = __('Login failed. Please check your credentials and try again.', WPSG_TEXT_DOMAIN);
+        }
+    }
+
+    $redirect = get_permalink() ?: home_url('/');
     ?>
     <div class="wpsg-login">
-        <p><?php esc_html_e('Log in to manage your mailbox and subscription.', WPSG_TEXT_DOMAIN); ?></p>
-        <a href="<?php echo esc_url($login_url); ?>" class="wpsg-btn wpsg-btn-primary"><?php esc_html_e('Log In', WPSG_TEXT_DOMAIN); ?></a>
+        <?php if ($error !== ''): ?>
+            <p class="wpsg-error-msg"><?php echo esc_html($error); ?></p>
+        <?php endif; ?>
+
+        <form class="wpsg-login-form" method="post" action="">
+            <?php wp_nonce_field('wpsg_login', 'wpsg_login_nonce'); ?>
+            <input type="hidden" name="wpsg_login_submit" value="1" />
+            <input type="hidden" name="wpsg_login_redirect" value="<?php echo esc_url($redirect); ?>" />
+
+            <div class="wpsg-field-group">
+                <label for="wpsg-login-username"><?php esc_html_e('Username or Email Address', WPSG_TEXT_DOMAIN); ?></label>
+                <input type="text" name="wpsg_login_username" id="wpsg-login-username" required autocomplete="username" />
+            </div>
+
+            <div class="wpsg-field-group">
+                <label for="wpsg-login-password"><?php esc_html_e('Password', WPSG_TEXT_DOMAIN); ?></label>
+                <input type="password" name="wpsg_login_password" id="wpsg-login-password" required autocomplete="current-password" />
+            </div>
+
+            <div class="wpsg-login-remember">
+                <label><input type="checkbox" name="wpsg_login_remember" value="1" /> <?php esc_html_e('Remember me', WPSG_TEXT_DOMAIN); ?></label>
+            </div>
+
+            <button type="submit" class="wpsg-btn wpsg-btn-primary"><?php esc_html_e('Log In', WPSG_TEXT_DOMAIN); ?></button>
+        </form>
     </div>
     <?php
     return ob_get_clean();
