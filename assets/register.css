@@ -137,3 +137,33 @@
     color: #666;
     margin-top: -0.5em;
 }
+
+/* ---- Login shortcode form ---- */
+.wpsg-login-form {
+    max-width: 480px;
+    margin: 0 auto;
+}
+.wpsg-login-form label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+.wpsg-login-form input[type="text"],
+.wpsg-login-form input[type="password"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 16px;
+    box-sizing: border-box;
+}
+.wpsg-login-remember {
+    margin-bottom: 16px;
+}
+.wpsg-login-remember label {
+    display: inline;
+    font-weight: normal;
+}
+.wpsg-login-remember input {
+    width: auto;
+}
